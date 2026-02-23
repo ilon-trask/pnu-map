@@ -48,6 +48,7 @@ export function createMapCanvas(canvas: HTMLCanvasElement, options: Options): Ma
     focusLocalX: number;
     focusLocalY: number;
   } | null = null;
+  let hasInitializedViewport = false;
   let floorImageLoaded = false;
   let currentFloorImageSrc = initialFloorImageSrc ?? DEFAULT_FLOOR_IMG_SRC;
 
@@ -308,6 +309,14 @@ export function createMapCanvas(canvas: HTMLCanvasElement, options: Options): Ma
     draw();
   }
 
+  function centerMapInViewport() {
+    const baseScale = Math.min(canvas.width / mapWidth, canvas.height / mapHeight);
+    const scaledWidth = mapWidth * baseScale * scale;
+    const scaledHeight = mapHeight * baseScale * scale;
+    offsetX = (canvas.width - scaledWidth) / 2;
+    offsetY = (canvas.height - scaledHeight) / 2;
+  }
+
   function loadFloorImage(src: string) {
     if (!src) return;
     if (src === currentFloorImageSrc && floorImageLoaded) return;
@@ -322,6 +331,10 @@ export function createMapCanvas(canvas: HTMLCanvasElement, options: Options): Ma
     mapHeight = floorImage.naturalHeight || LOGICAL_FLOOR_HEIGHT;
     coordScaleX = mapWidth / LOGICAL_FLOOR_WIDTH;
     coordScaleY = mapHeight / LOGICAL_FLOOR_HEIGHT;
+    if (!hasInitializedViewport) {
+      centerMapInViewport();
+      hasInitializedViewport = true;
+    }
     floorImageLoaded = true;
     draw();
   };
