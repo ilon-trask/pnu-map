@@ -218,7 +218,7 @@ export default function App() {
                     type="button"
                     className="btn-map-inline"
                     title="Google Maps"
-                    onClick={() => openInMaps(`${building.name}, ${building.address}`, "google")}
+                    onClick={() => openInMaps(`${building.address}`, "google")}
                   >
                     Google
                   </button>
@@ -226,7 +226,7 @@ export default function App() {
                     type="button"
                     className="btn-map-inline"
                     title="Apple Maps"
-                    onClick={() => openInMaps(`${building.name}, ${building.address}`, "apple")}
+                    onClick={() => openInMaps(`${building.address}`, "apple")}
                   >
                     Apple
                   </button>
