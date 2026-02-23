@@ -89,6 +89,9 @@ export default function App() {
   return (
     <div className="app">
       <main className="map-wrapper">
+        <div className="top-bar pill-bar">
+          <span className="building-name" style={{ margin: "0 auto", textAlign: "center" }}>Центральний корпус</span>
+        </div>
         <canvas id="map-canvas" ref={canvasRef} width={800} height={600} />
 
         <div
