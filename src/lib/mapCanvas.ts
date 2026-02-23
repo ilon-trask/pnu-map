@@ -21,6 +21,7 @@ export function createMapCanvas(canvas: HTMLCanvasElement, options: Options): Ma
   const LOGICAL_FLOOR_WIDTH = 800;
   const LOGICAL_FLOOR_HEIGHT = 600;
   const DEFAULT_FLOOR_IMG_SRC = "/floors/1.svg";
+  const TOUCH_PAN_MULTIPLIER = 1.8;
 
   const rawContext = canvas.getContext("2d");
   if (!rawContext) throw new Error("Cannot get 2D context");
@@ -169,8 +170,9 @@ export function createMapCanvas(canvas: HTMLCanvasElement, options: Options): Ma
   function onPointerMove(e: PointerEvent) {
     if (!isDragging) return;
 
-    offsetX += e.clientX - lastPointer.x;
-    offsetY += e.clientY - lastPointer.y;
+    const panMultiplier = e.pointerType === "touch" ? TOUCH_PAN_MULTIPLIER : 1;
+    offsetX += (e.clientX - lastPointer.x) * panMultiplier;
+    offsetY += (e.clientY - lastPointer.y) * panMultiplier;
     lastPointer = { x: e.clientX, y: e.clientY };
     draw();
   }
