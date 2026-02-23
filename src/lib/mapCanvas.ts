@@ -21,6 +21,7 @@ export function createMapCanvas(canvas: HTMLCanvasElement, options: Options): Ma
   const LOGICAL_FLOOR_WIDTH = 800;
   const LOGICAL_FLOOR_HEIGHT = 600;
   const DEFAULT_FLOOR_IMG_SRC = "/floors/1.svg";
+  const INITIAL_VIEWPORT_PADDING_RATIO = 0.1;
   const TOUCH_PAN_MULTIPLIER = 1.35;
 
   const rawContext = canvas.getContext("2d");
@@ -310,7 +311,16 @@ export function createMapCanvas(canvas: HTMLCanvasElement, options: Options): Ma
   }
 
   function centerMapInViewport() {
+    const safePaddingRatio = Math.max(0, Math.min(0.45, INITIAL_VIEWPORT_PADDING_RATIO));
+    const paddingX = canvas.width * safePaddingRatio;
+    const paddingY = canvas.height * safePaddingRatio;
+    const availableWidth = Math.max(1, canvas.width - paddingX * 2);
+    const availableHeight = Math.max(1, canvas.height - paddingY * 2);
+
     const baseScale = Math.min(canvas.width / mapWidth, canvas.height / mapHeight);
+    const paddedBaseScale = Math.min(availableWidth / mapWidth, availableHeight / mapHeight);
+    scale = Math.max(0.3, Math.min(3, paddedBaseScale / baseScale));
+
     const scaledWidth = mapWidth * baseScale * scale;
     const scaledHeight = mapHeight * baseScale * scale;
     offsetX = (canvas.width - scaledWidth) / 2;
