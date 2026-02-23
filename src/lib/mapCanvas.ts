@@ -21,7 +21,7 @@ export function createMapCanvas(canvas: HTMLCanvasElement, options: Options): Ma
   const LOGICAL_FLOOR_WIDTH = 800;
   const LOGICAL_FLOOR_HEIGHT = 600;
   const DEFAULT_FLOOR_IMG_SRC = "/floors/1.svg";
-  const TOUCH_PAN_MULTIPLIER = 1.8;
+  const TOUCH_PAN_MULTIPLIER = 1.35;
 
   const rawContext = canvas.getContext("2d");
   if (!rawContext) throw new Error("Cannot get 2D context");
@@ -41,6 +41,13 @@ export function createMapCanvas(canvas: HTMLCanvasElement, options: Options): Ma
   let toRoomId: string | null = null;
   let isDragging = false;
   let lastPointer = { x: 0, y: 0 };
+  const activePointers = new Map<number, { x: number; y: number; pointerType: string }>();
+  let pinchState: {
+    startDistance: number;
+    startScale: number;
+    focusLocalX: number;
+    focusLocalY: number;
+  } | null = null;
   let floorImageLoaded = false;
   let currentFloorImageSrc = initialFloorImageSrc ?? DEFAULT_FLOOR_IMG_SRC;
 
@@ -54,6 +61,39 @@ export function createMapCanvas(canvas: HTMLCanvasElement, options: Options): Ma
 
     canvas.width = width;
     canvas.height = height;
+  }
+
+  function toCanvasPoint(e: PointerEvent) {
+    const rect = canvas.getBoundingClientRect();
+    return {
+      x: (e.clientX - rect.left) * (canvas.width / rect.width),
+      y: (e.clientY - rect.top) * (canvas.height / rect.height),
+    };
+  }
+
+  function getTouchPointers() {
+    return Array.from(activePointers.values()).filter((pointer) => pointer.pointerType === "touch");
+  }
+
+  function startPinchGesture() {
+    const touches = getTouchPointers();
+    if (touches.length < 2) return;
+
+    const first = touches[0];
+    const second = touches[1];
+    const distance = Math.hypot(second.x - first.x, second.y - first.y);
+    if (distance <= 0) return;
+
+    const midX = (first.x + second.x) / 2;
+    const midY = (first.y + second.y) / 2;
+    const transform = getTransform();
+
+    pinchState = {
+      startDistance: distance,
+      startScale: scale,
+      focusLocalX: (midX - transform.tx) / transform.scale,
+      focusLocalY: (midY - transform.ty) / transform.scale,
+    };
   }
 
   function getTransform() {
@@ -163,21 +203,82 @@ export function createMapCanvas(canvas: HTMLCanvasElement, options: Options): Ma
   }
 
   function onPointerDown(e: PointerEvent) {
+    const point = toCanvasPoint(e);
+    activePointers.set(e.pointerId, { ...point, pointerType: e.pointerType });
+    canvas.setPointerCapture(e.pointerId);
+
+    if (e.pointerType === "touch" && getTouchPointers().length >= 2) {
+      isDragging = false;
+      startPinchGesture();
+      return;
+    }
+
     isDragging = true;
-    lastPointer = { x: e.clientX, y: e.clientY };
+    lastPointer = point;
   }
 
   function onPointerMove(e: PointerEvent) {
+    const point = toCanvasPoint(e);
+    const activePointer = activePointers.get(e.pointerId);
+    if (activePointer) {
+      activePointers.set(e.pointerId, { ...point, pointerType: activePointer.pointerType });
+    }
+
+    const touches = getTouchPointers();
+    if (touches.length >= 2) {
+      if (!pinchState) {
+        startPinchGesture();
+      }
+      if (!pinchState) return;
+
+      const first = touches[0];
+      const second = touches[1];
+      const midX = (first.x + second.x) / 2;
+      const midY = (first.y + second.y) / 2;
+      const distance = Math.hypot(second.x - first.x, second.y - first.y);
+      if (distance <= 0) return;
+
+      const pinchRatio = distance / pinchState.startDistance;
+      const newScale = Math.max(0.3, Math.min(3, pinchState.startScale * pinchRatio));
+      const baseScale = Math.min(canvas.width / mapWidth, canvas.height / mapHeight);
+      const newScaled = baseScale * newScale;
+
+      offsetX = midX - pinchState.focusLocalX * newScaled;
+      offsetY = midY - pinchState.focusLocalY * newScaled;
+      scale = newScale;
+      draw();
+      return;
+    }
+
+    pinchState = null;
     if (!isDragging) return;
 
     const panMultiplier = e.pointerType === "touch" ? TOUCH_PAN_MULTIPLIER : 1;
-    offsetX += (e.clientX - lastPointer.x) * panMultiplier;
-    offsetY += (e.clientY - lastPointer.y) * panMultiplier;
-    lastPointer = { x: e.clientX, y: e.clientY };
+    offsetX += (point.x - lastPointer.x) * panMultiplier;
+    offsetY += (point.y - lastPointer.y) * panMultiplier;
+    lastPointer = point;
     draw();
   }
 
-  function onPointerUp() {
+  function onPointerUp(e: PointerEvent) {
+    activePointers.delete(e.pointerId);
+    if (canvas.hasPointerCapture(e.pointerId)) {
+      canvas.releasePointerCapture(e.pointerId);
+    }
+
+    const touches = getTouchPointers();
+    if (touches.length >= 2) {
+      startPinchGesture();
+      return;
+    }
+
+    pinchState = null;
+    if (touches.length === 1) {
+      isDragging = true;
+      lastPointer = { x: touches[0].x, y: touches[0].y };
+      return;
+    }
+
     isDragging = false;
   }
 
@@ -235,6 +336,7 @@ export function createMapCanvas(canvas: HTMLCanvasElement, options: Options): Ma
   canvas.addEventListener("pointerdown", onPointerDown);
   canvas.addEventListener("pointermove", onPointerMove);
   canvas.addEventListener("pointerup", onPointerUp);
+  canvas.addEventListener("pointercancel", onPointerUp);
   canvas.addEventListener("pointerleave", onPointerUp);
   canvas.addEventListener("wheel", onWheel, { passive: false });
   window.addEventListener("resize", onWindowResize);
@@ -273,6 +375,7 @@ export function createMapCanvas(canvas: HTMLCanvasElement, options: Options): Ma
       canvas.removeEventListener("pointerdown", onPointerDown);
       canvas.removeEventListener("pointermove", onPointerMove);
       canvas.removeEventListener("pointerup", onPointerUp);
+      canvas.removeEventListener("pointercancel", onPointerUp);
       canvas.removeEventListener("pointerleave", onPointerUp);
       canvas.removeEventListener("wheel", onWheel);
       window.removeEventListener("resize", onWindowResize);
