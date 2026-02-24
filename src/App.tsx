@@ -146,6 +146,7 @@ export default function App() {
     mapApiRef.current.setFromRoom(result.fromClassId);
     mapApiRef.current.setToRoom(result.toClassId);
     mapApiRef.current.setPath(result.path);
+    setPathPanelVisible(false);
   }
 
   function clearPath() {
