@@ -11,6 +11,7 @@ const FLOORS = [
   { id: 3, name: "3", imageSrc: "/floors/3.svg" },
   { id: 4, name: "4", imageSrc: "/floors/4.svg" },
 ];
+const HIDE_MAP_DATA_POINTS = true;
 
 function getFloorFromRoomId(roomId: string): number | null {
   const numericPart = roomId.match(/(\d{3,4})/)?.[0];
@@ -34,7 +35,13 @@ export default function App() {
   const [floorDropdownOpen, setFloorDropdownOpen] = useState(false);
   const [buildingsPanelOpen, setBuildingsPanelOpen] = useState(false);
 
-  const structureData = useMemo(() => MAP_DATA.getStructureDataByFloor(selectedFloor), [selectedFloor]);
+  const structureData = useMemo(
+    () =>
+      HIDE_MAP_DATA_POINTS
+        ? { walls: [], corridors: [], junctions: [] }
+        : MAP_DATA.getStructureDataByFloor(selectedFloor),
+    [selectedFloor]
+  );
 
   const roomItems = useMemo(
     () => MAP_DATA.ROOMS.filter((room) => room.show !== false).map((room) => ({ id: room.id, name: room.name })),
@@ -43,12 +50,14 @@ export default function App() {
 
   const roomPoints = useMemo(
     () =>
-      MAP_DATA.ROOMS.filter(room => getFloorFromRoomId(room.id) === selectedFloor).map((room) => ({
-        id: room.id,
-        x: room.x,
-        y: room.y,
-        floor: getFloorFromRoomId(room.id) ?? undefined,
-      })),
+      HIDE_MAP_DATA_POINTS
+        ? []
+        : MAP_DATA.ROOMS.filter(room => getFloorFromRoomId(room.id) === selectedFloor).map((room) => ({
+            id: room.id,
+            x: room.x,
+            y: room.y,
+            floor: getFloorFromRoomId(room.id) ?? undefined,
+          })),
     [selectedFloor]
   );
 
