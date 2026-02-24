@@ -79,21 +79,13 @@ export default function App() {
   }, [selectedFloor, selectedFloorImageSrc]);
 
   function doSearchPath() {
-    if (!mapApiRef.current) return;
-    if (!fromRoom || !toRoom) {
-      mapApiRef.current.setFromRoom(null);
-      mapApiRef.current.setToRoom(null);
-      mapApiRef.current.setPath([]);
-      return;
-    }
+    if (!fromRoom || !toRoom || !mapApiRef.current) return;
 
     const result = findClassPath(fromRoom, toRoom);
-    if (!result) {
-      mapApiRef.current.setFromRoom(null);
-      mapApiRef.current.setToRoom(null);
-      mapApiRef.current.setPath([]);
-      return;
-    }
+    if (!result) return;
+
+    setFromRoom(result.fromClassId);
+    setToRoom(result.toClassId);
 
     const startFloor = getFloorFromRoomId(result.fromClassId);
     if (startFloor !== null && startFloor !== selectedFloor) {
