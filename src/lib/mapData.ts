@@ -24,6 +24,13 @@ export type OtherBuilding = {
   address: string;
 };
 
+export type StructureRect = [number, number, number, number];
+export type StructureData = {
+  walls: StructureRect[];
+  corridors: StructureRect[];
+  junctions: PointNode[];
+};
+
 const FLOOR_WIDTH = 800;
 const FLOOR_HEIGHT = 600;
 
@@ -180,16 +187,39 @@ addBidi("stair", "j5");
   ["j7", "j10"],
 ].forEach(([a, b]) => addBidi(a, b));
 
-const WALLS: [number, number, number, number][] = [
+const WALLS: StructureRect[] = [
   [80, 185, 700, 90],
   [0, 0, 55, 600],
   [80, 325, 720, 90],
 ];
 
-const CORRIDORS: [number, number, number, number][] = [
+const CORRIDORS: StructureRect[] = [
   [80, 280, 720, 40],
   [55, 0, 25, 600],
 ];
+
+const FLOOR_4_WALLS: StructureRect[] = [
+  [0, 0, 95, 600],
+];
+
+const FLOOR_4_CORRIDORS: StructureRect[] = [
+  [100, 0, 55, 600],
+];
+
+const FLOOR_4_JUNCTIONS: PointNode[] = [
+  { id: "f4-j3", x: 140, y: 300 },
+];
+
+const STRUCTURES_BY_FLOOR: Record<number, StructureData> = {
+  1: { walls: WALLS, corridors: CORRIDORS, junctions: JUNCTIONS },
+  2: { walls: WALLS, corridors: CORRIDORS, junctions: JUNCTIONS },
+  3: { walls: WALLS, corridors: CORRIDORS, junctions: JUNCTIONS },
+  4: { walls: FLOOR_4_WALLS, corridors: FLOOR_4_CORRIDORS, junctions: FLOOR_4_JUNCTIONS },
+};
+
+function getStructureDataByFloor(floor: number): StructureData {
+  return STRUCTURES_BY_FLOOR[floor] ?? STRUCTURES_BY_FLOOR[1];
+}
 
 const OTHER_BUILDINGS: OtherBuilding[] = [
   { id: "b1", name: "Корпус № 1 (Адміністративний)", address: "вул. Шевченка, 57 (технічний), Івано-Франківськ" },
@@ -231,5 +261,7 @@ export const MAP_DATA = {
   findNode,
   WALLS,
   CORRIDORS,
+  STRUCTURES_BY_FLOOR,
+  getStructureDataByFloor,
   OTHER_BUILDINGS,
 };

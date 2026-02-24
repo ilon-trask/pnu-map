@@ -34,18 +34,11 @@ export default function App() {
   const [floorDropdownOpen, setFloorDropdownOpen] = useState(false);
   const [buildingsPanelOpen, setBuildingsPanelOpen] = useState(false);
 
-  const structureData = useMemo(
-    () => ({
-      walls: MAP_DATA.WALLS,
-      corridors: MAP_DATA.CORRIDORS,
-      junctions: MAP_DATA.JUNCTIONS,
-    }),
-    [MAP_DATA.WALLS, MAP_DATA.CORRIDORS, MAP_DATA.JUNCTIONS]
-  );
+  const structureData = useMemo(() => MAP_DATA.getStructureDataByFloor(selectedFloor), [selectedFloor]);
 
   const roomItems = useMemo(
     () => MAP_DATA.ROOMS.filter((room) => room.show !== false).map((room) => ({ id: room.id, name: room.name })),
-    [MAP_DATA.ROOMS]
+    []
   );
 
   const roomPoints = useMemo(
@@ -56,7 +49,7 @@ export default function App() {
         y: room.y,
         floor: getFloorFromRoomId(room.id) ?? undefined,
       })),
-    [selectedFloor, MAP_DATA.ROOMS]
+    [selectedFloor]
   );
 
   const selectedFloorName = useMemo(
