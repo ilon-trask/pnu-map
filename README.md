@@ -4,7 +4,7 @@
 
 - карта поверху на `canvas` з drag/zoom;
 - побудова маршруту між аудиторіями (A* pathfinding);
-- вибір аудиторій через autocomplete combobox;
+- вибір аудиторій через select;
 - панель інших будівель з переходом у Google Maps / Apple Maps.
 - PWA підтримка (installable + кешування основних ресурсів для офлайн-режиму).
 
@@ -27,7 +27,7 @@ npm run dev
 ## Структура
 
 - `src/App.tsx` — UI та поведінка екрана
-- `src/components/Combobox.tsx` — autocomplete combobox
+- `src/components/Select.tsx` — селект аудиторій
 - `src/lib/mapData.ts` — дані плану та граф
 - `src/lib/pathfinding.ts` — A* алгоритм
 - `src/lib/mapCanvas.ts` — рендеринг/взаємодія з `canvas`

@@ -1,6 +1,6 @@
 import { useEffect, useMemo, useRef, useState } from "react";
 import "./App.css";
-import Combobox from "./components/Combobox";
+import Select from "./components/Select";
 import { createMapCanvas, type MapCanvasApi } from "./lib/mapCanvas";
 import { MAP_DATA } from "./lib/mapData";
 import { findClassPath, getNodeById } from "./lib/pathfinding";
@@ -197,7 +197,7 @@ export default function App() {
           <div className="path-fields" >
             <div className="path-field">
               <label htmlFor="from-room-input">З</label>
-              <Combobox
+              <Select
                 items={roomItems}
                 placeholder="Оберіть аудиторію"
                 value={fromRoom}
@@ -207,7 +207,7 @@ export default function App() {
             </div>
             <div className="path-field">
               <label htmlFor="to-room-input">До</label>
-              <Combobox
+              <Select
                 items={roomItems}
                 placeholder="Оберіть аудиторію"
                 value={toRoom}
