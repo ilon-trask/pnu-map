@@ -34,8 +34,9 @@
 
   /* Map canvas (used by JS for drawing) */
   --map-bg: #0f1216;
-  --map-wall: #252b33;
-  --map-corridor: #1c2229;
+  --map-wall: #4f6072;
+  --map-corridor: #2f4154;
+  --map-junction: #f2cc72;
   --map-room-stroke: rgba(166, 223, 230, 0.35);
 
   /* System */

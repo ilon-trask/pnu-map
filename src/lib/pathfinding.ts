@@ -26,6 +26,8 @@ type OpenNode = PathNode & {
 const STAIR_ID_PREFIX = "stair-";
 const FLOOR_NODE_DELIMITER = "__floor__";
 const FLOOR_TRANSITION_COST = 140;
+const NEARBY_JUNCTION_LINK_COUNT = 2;
+const NEARBY_JUNCTION_MAX_DISTANCE = 220;
 
 const roomNodes = new Map(
   MAP_DATA.ROOMS.map((room) => [
@@ -196,12 +198,37 @@ function buildGraph(): { edges: Map<string, GraphEdge[]>; nodesById: Map<string,
     });
   });
 
-  // Ensure every room has at least one floor-local connector, even if EDGES omits it.
+  // Supplement sparse/incomplete static edges by connecting each junction to nearby
+  // local neighbors on the same floor. This prevents long detours in straight corridors.
+  availableFloors.forEach((floor) => {
+    const scopedJunctions = MAP_DATA.JUNCTIONS.map((junction) => toFloorScopedId(junction.id, floor))
+      .map((id) => resolveNode(id))
+      .filter((node): node is PathNode => Boolean(node));
+
+    scopedJunctions.forEach((fromNode) => {
+      const neighbors = scopedJunctions
+        .filter((toNode) => toNode.id !== fromNode.id)
+        .map((toNode) => ({
+          id: toNode.id,
+          distance: Math.hypot(toNode.x - fromNode.x, toNode.y - fromNode.y),
+        }))
+        .filter((candidate) => candidate.distance <= NEARBY_JUNCTION_MAX_DISTANCE)
+        .sort((a, b) => a.distance - b.distance)
+        .slice(0, NEARBY_JUNCTION_LINK_COUNT);
+
+      neighbors.forEach((neighbor) => {
+        addEdge(fromNode.id, neighbor.id);
+        addEdge(neighbor.id, fromNode.id);
+      });
+    });
+  });
+
+  // Ensure every room has a floor-local connector to the nearest junction.
+  // This corrects stale/manual edge definitions that can force long detours.
   roomIds.forEach((roomId) => {
     const floor = getFloorFromRoomId(roomId);
     const roomNode = resolveNode(roomId);
     if (floor === null || !roomNode) return;
-    if ((edges.get(roomId) ?? []).length > 0) return;
 
     let nearestJunctionId: string | null = null;
     let nearestDistance = Number.POSITIVE_INFINITY;

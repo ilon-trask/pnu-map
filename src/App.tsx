@@ -34,10 +34,18 @@ export default function App() {
   const [floorDropdownOpen, setFloorDropdownOpen] = useState(false);
   const [buildingsPanelOpen, setBuildingsPanelOpen] = useState(false);
 
+  const structureData = useMemo(
+    () => ({
+      walls: MAP_DATA.WALLS,
+      corridors: MAP_DATA.CORRIDORS,
+      junctions: MAP_DATA.JUNCTIONS,
+    }),
+    [MAP_DATA.WALLS, MAP_DATA.CORRIDORS, MAP_DATA.JUNCTIONS]
+  );
 
   const roomItems = useMemo(
     () => MAP_DATA.ROOMS.filter((room) => room.show !== false).map((room) => ({ id: room.id, name: room.name })),
-    []
+    [MAP_DATA.ROOMS]
   );
 
   const roomPoints = useMemo(
@@ -48,7 +56,7 @@ export default function App() {
         y: room.y,
         floor: getFloorFromRoomId(room.id) ?? undefined,
       })),
-    [selectedFloor]
+    [selectedFloor, MAP_DATA.ROOMS]
   );
 
   const selectedFloorName = useMemo(
@@ -77,6 +85,7 @@ export default function App() {
     mapApiRef.current = createMapCanvas(canvasRef.current, {
       getNodeById,
       roomPoints,
+      structureData,
       initialFloorImageSrc: FLOORS[0].imageSrc,
       onFloorHintClick: (floor) => applyFloorView(floor),
     });
@@ -93,23 +102,30 @@ export default function App() {
   }, [selectedFloor, selectedFloorImageSrc]);
 
   useEffect(() => {
-    const api = mapApiRef.current as (MapCanvasApi & { setRoomPoints?: (points: typeof roomPoints) => void }) | null;
+    const api = mapApiRef.current as
+      | (MapCanvasApi & {
+          setRoomPoints?: (points: typeof roomPoints) => void;
+          setStructureData?: (data: typeof structureData) => void;
+        })
+      | null;
     if (!api || !canvasRef.current) return;
 
-    if (typeof api.setRoomPoints === "function") {
+    if (typeof api.setRoomPoints === "function" && typeof api.setStructureData === "function") {
       api.setRoomPoints(roomPoints);
+      api.setStructureData(structureData);
       return;
     }
 
-    // HMR-safe fallback for stale instances created before setRoomPoints existed.
+    // HMR-safe fallback for stale instances created before data-setters existed.
     api.destroy();
     mapApiRef.current = createMapCanvas(canvasRef.current, {
       getNodeById,
       roomPoints,
+      structureData,
       initialFloorImageSrc: FLOORS[0].imageSrc,
       onFloorHintClick: (floor) => applyFloorView(floor),
     });
-  }, [roomPoints]);
+  }, [roomPoints, structureData]);
 
   function doSearchPath() {
     if (!fromRoom || !toRoom || !mapApiRef.current) return;

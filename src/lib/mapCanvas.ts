@@ -1,9 +1,18 @@
 import type { PathNode } from "./pathfinding";
 
+type StructureRect = [number, number, number, number];
+type StructureJunction = Pick<PathNode, "x" | "y">;
+type MapStructureData = {
+  walls: StructureRect[];
+  corridors: StructureRect[];
+  junctions: StructureJunction[];
+};
+
 export type MapCanvasApi = {
   draw: () => void;
   resize: () => void;
   setRoomPoints: (points: Array<Pick<PathNode, "id" | "x" | "y" | "floor">>) => void;
+  setStructureData: (data: MapStructureData) => void;
   setPath: (path: PathNode[]) => void;
   setFromRoom: (id: string | null) => void;
   setToRoom: (id: string | null) => void;
@@ -17,6 +26,7 @@ export type MapCanvasApi = {
 type Options = {
   getNodeById: (id: string) => PathNode | undefined;
   roomPoints?: Array<Pick<PathNode, "id" | "x" | "y" | "floor">>;
+  structureData?: MapStructureData;
   initialFloorImageSrc?: string;
   onFloorHintClick?: (floor: number) => void;
 };
@@ -40,7 +50,13 @@ export function createMapCanvas(canvas: HTMLCanvasElement, options: Options): Ma
   if (!rawContext) throw new Error("Cannot get 2D context");
   const context: CanvasRenderingContext2D = rawContext;
 
-  const { getNodeById, roomPoints: initialRoomPoints = [], initialFloorImageSrc, onFloorHintClick } = options;
+  const {
+    getNodeById,
+    roomPoints: initialRoomPoints = [],
+    structureData: initialStructureData,
+    initialFloorImageSrc,
+    onFloorHintClick,
+  } = options;
 
   let scale = 1;
   let offsetX = 0;
@@ -51,6 +67,7 @@ export function createMapCanvas(canvas: HTMLCanvasElement, options: Options): Ma
   let coordScaleY = 1;
   let currentPath: PathNode[] = [];
   let roomPoints = initialRoomPoints;
+  let structureData: MapStructureData = initialStructureData ?? { walls: [], corridors: [], junctions: [] };
   let fromRoomId: string | null = null;
   let toRoomId: string | null = null;
   let activeFloor = 1;
@@ -67,7 +84,11 @@ export function createMapCanvas(canvas: HTMLCanvasElement, options: Options): Ma
   let hasInitializedViewport = false;
   let floorImageLoaded = false;
   let currentFloorImageSrc = initialFloorImageSrc ?? DEFAULT_FLOOR_IMG_SRC;
-  const accentColor = getComputedStyle(document.documentElement).getPropertyValue("--accent").trim() || "#a6dfe6";
+  const rootStyles = getComputedStyle(document.documentElement);
+  const accentColor = rootStyles.getPropertyValue("--accent").trim() || "#a6dfe6";
+  const mapWallColor = rootStyles.getPropertyValue("--map-wall").trim() || "#4f6072";
+  const mapCorridorColor = rootStyles.getPropertyValue("--map-corridor").trim() || "#2f4154";
+  const mapJunctionColor = rootStyles.getPropertyValue("--map-junction").trim() || accentColor;
 
   const floorImage = new Image();
   function resizeCanvasToContainer() {
@@ -142,6 +163,14 @@ export function createMapCanvas(canvas: HTMLCanvasElement, options: Options): Ma
 
   function mapY(y: number) {
     return y * coordScaleY;
+  }
+
+  function mapW(w: number) {
+    return w * coordScaleX;
+  }
+
+  function mapH(h: number) {
+    return h * coordScaleY;
   }
 
   function getFloorFromNode(node: PathNode): number | null {
@@ -316,6 +345,51 @@ export function createMapCanvas(canvas: HTMLCanvasElement, options: Options): Ma
     }
   }
 
+  function drawStructureOverlay() {
+    const transformScale = Math.max(0.001, getTransform().scale);
+    const wallStrokeWidth = 1.5 / transformScale;
+    const junctionRadius = 6.5 / transformScale;
+    const junctionStrokeWidth = 2 / transformScale;
+
+    context.save();
+    context.fillStyle = mapCorridorColor;
+    context.globalAlpha = 0.58;
+    for (const [x, y, width, height] of structureData.corridors) {
+      context.fillRect(mapX(x), mapY(y), mapW(width), mapH(height));
+    }
+    context.restore();
+
+    context.save();
+    context.fillStyle = mapWallColor;
+    context.strokeStyle = "rgba(8, 11, 14, 0.75)";
+    context.lineWidth = wallStrokeWidth;
+    context.globalAlpha = 0.72;
+    for (const [x, y, width, height] of structureData.walls) {
+      const left = mapX(x);
+      const top = mapY(y);
+      const mapWidth = mapW(width);
+      const mapHeight = mapH(height);
+      context.fillRect(left, top, mapWidth, mapHeight);
+      context.strokeRect(left, top, mapWidth, mapHeight);
+    }
+    context.restore();
+
+    context.save();
+    context.fillStyle = mapJunctionColor;
+    context.strokeStyle = "rgba(8, 11, 14, 0.9)";
+    context.lineWidth = junctionStrokeWidth;
+    context.globalAlpha = 0.95;
+    for (const junction of structureData.junctions) {
+      const x = mapX(junction.x);
+      const y = mapY(junction.y);
+      context.beginPath();
+      context.arc(x, y, junctionRadius, 0, Math.PI * 2);
+      context.fill();
+      context.stroke();
+    }
+    context.restore();
+  }
+
   function drawPins() {
     if (fromRoomId) {
       const from = getNodeById(fromRoomId);
@@ -368,6 +442,7 @@ export function createMapCanvas(canvas: HTMLCanvasElement, options: Options): Ma
       context.drawImage(floorImage, 0, 0, mapWidth, mapHeight);
     }
 
+    drawStructureOverlay();
     drawRoomPoints();
     drawPath();
     drawFloorTransitionHints();
@@ -557,6 +632,10 @@ export function createMapCanvas(canvas: HTMLCanvasElement, options: Options): Ma
     },
     setRoomPoints(points) {
       roomPoints = points;
+      draw();
+    },
+    setStructureData(data: MapStructureData) {
+      structureData = data;
       draw();
     },
     setPath(path: PathNode[]) {

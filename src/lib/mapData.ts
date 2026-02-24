@@ -136,16 +136,12 @@ function getRoomCenter(room: Room): PointNode {
 const NODES: PointNode[] = ROOMS.map(getRoomCenter);
 
 const JUNCTIONS: PointNode[] = [
-  { id: "j1", x: 155, y: 130 },
-  { id: "j2", x: 400, y: 130 },
-  { id: "j3", x: 645, y: 130 },
-  { id: "j4", x: 107, y: 332 },
-  { id: "j5", x: 400, y: 332 },
-  { id: "j6", x: 693, y: 332 },
-  { id: "j7", x: 400, y: 452 },
-  { id: "j8", x: 320, y: 507 },
-  { id: "j9", x: 400, y: 507 },
-  { id: "j10", x: 480, y: 507 },
+  { id: "j1", x: 70, y: 300 },
+  { id: "j2", x: 465, y: 300 },
+  { id: "j3", x: 730, y: 300 },
+  { id: "j4", x: 330, y: 300 },
+  { id: "j5", x: 590, y: 300 },
+  { id: "j6", x: 190, y: 300 },
 ];
 
 const ALL_NODES: PointNode[] = [...NODES, ...JUNCTIONS];
@@ -185,20 +181,14 @@ addBidi("stair", "j5");
 ].forEach(([a, b]) => addBidi(a, b));
 
 const WALLS: [number, number, number, number][] = [
-  [100, 60, 700, 90],
-  [60, 60, 50, 360],
-  [690, 60, 50, 360],
-  [180, 440, 480, 110],
-  [340, 260, 120, 120],
+  [80, 185, 700, 90],
+  [0, 0, 55, 600],
+  [80, 325, 720, 90],
 ];
 
 const CORRIDORS: [number, number, number, number][] = [
-  [150, 150, 500, 30],
-  [110, 180, 30, 200],
-  [660, 180, 30, 200],
-  [180, 380, 440, 60],
-  [380, 260, 40, 120],
-  [340, 380, 120, 40],
+  [80, 280, 720, 40],
+  [55, 0, 25, 600],
 ];
 
 const OTHER_BUILDINGS: OtherBuilding[] = [
