@@ -3,6 +3,7 @@ import type { PathNode } from "./pathfinding";
 export type MapCanvasApi = {
   draw: () => void;
   resize: () => void;
+  setRoomPoints: (points: Array<Pick<PathNode, "id" | "x" | "y" | "floor">>) => void;
   setPath: (path: PathNode[]) => void;
   setFromRoom: (id: string | null) => void;
   setToRoom: (id: string | null) => void;
@@ -15,6 +16,7 @@ export type MapCanvasApi = {
 
 type Options = {
   getNodeById: (id: string) => PathNode | undefined;
+  roomPoints?: Array<Pick<PathNode, "id" | "x" | "y" | "floor">>;
   initialFloorImageSrc?: string;
   onFloorHintClick?: (floor: number) => void;
 };
@@ -38,7 +40,7 @@ export function createMapCanvas(canvas: HTMLCanvasElement, options: Options): Ma
   if (!rawContext) throw new Error("Cannot get 2D context");
   const context: CanvasRenderingContext2D = rawContext;
 
-  const { getNodeById, initialFloorImageSrc, onFloorHintClick } = options;
+  const { getNodeById, roomPoints: initialRoomPoints = [], initialFloorImageSrc, onFloorHintClick } = options;
 
   let scale = 1;
   let offsetX = 0;
@@ -48,6 +50,7 @@ export function createMapCanvas(canvas: HTMLCanvasElement, options: Options): Ma
   let coordScaleX = 1;
   let coordScaleY = 1;
   let currentPath: PathNode[] = [];
+  let roomPoints = initialRoomPoints;
   let fromRoomId: string | null = null;
   let toRoomId: string | null = null;
   let activeFloor = 1;
@@ -289,6 +292,30 @@ export function createMapCanvas(canvas: HTMLCanvasElement, options: Options): Ma
     context.shadowBlur = 0;
   }
 
+  function drawRoomPoints() {
+    if (roomPoints.length === 0) return;
+
+    const transformScale = Math.max(0.001, getTransform().scale);
+    const radius = 8 / transformScale;
+    const strokeWidth = 2 / transformScale;
+    context.fillStyle = "rgba(166, 223, 230, 0.95)";
+    context.strokeStyle = "rgba(8, 11, 14, 0.92)";
+    context.lineWidth = strokeWidth;
+
+    for (const point of roomPoints) {
+      const pointFloor = getFloorFromNode(point);
+      if (pointFloor === null || pointFloor !== activeFloor) continue;
+
+      const x = mapX(point.x);
+      const y = mapY(point.y);
+
+      context.beginPath();
+      context.arc(x, y, radius, 0, Math.PI * 2);
+      context.fill();
+      context.stroke();
+    }
+  }
+
   function drawPins() {
     if (fromRoomId) {
       const from = getNodeById(fromRoomId);
@@ -341,6 +368,7 @@ export function createMapCanvas(canvas: HTMLCanvasElement, options: Options): Ma
       context.drawImage(floorImage, 0, 0, mapWidth, mapHeight);
     }
 
+    drawRoomPoints();
     drawPath();
     drawFloorTransitionHints();
     drawPins();
@@ -525,6 +553,10 @@ export function createMapCanvas(canvas: HTMLCanvasElement, options: Options): Ma
     draw,
     resize() {
       resizeCanvasToContainer();
+      draw();
+    },
+    setRoomPoints(points) {
+      roomPoints = points;
       draw();
     },
     setPath(path: PathNode[]) {

@@ -32,8 +32,8 @@ const roomNodes = new Map(
     room.id,
     {
       id: room.id,
-      x: room.x + room.w / 2,
-      y: room.y + room.h / 2,
+      x: room.x,
+      y: room.y,
       floor: getFloorFromRoomId(room.id) ?? undefined,
     } satisfies PathNode,
   ])
@@ -196,11 +196,12 @@ function buildGraph(): { edges: Map<string, GraphEdge[]>; nodesById: Map<string,
     });
   });
 
-  stairRoomIds.forEach((stairId) => {
-    const floor = getFloorFromRoomId(stairId);
-    const stairNode = resolveNode(stairId);
-    if (floor === null || !stairNode) return;
-    if ((edges.get(stairId) ?? []).length > 0) return;
+  // Ensure every room has at least one floor-local connector, even if EDGES omits it.
+  roomIds.forEach((roomId) => {
+    const floor = getFloorFromRoomId(roomId);
+    const roomNode = resolveNode(roomId);
+    if (floor === null || !roomNode) return;
+    if ((edges.get(roomId) ?? []).length > 0) return;
 
     let nearestJunctionId: string | null = null;
     let nearestDistance = Number.POSITIVE_INFINITY;
@@ -210,7 +211,7 @@ function buildGraph(): { edges: Map<string, GraphEdge[]>; nodesById: Map<string,
       const junctionNode = resolveNode(junctionNodeId);
       if (!junctionNode) return;
 
-      const distance = Math.hypot(junctionNode.x - stairNode.x, junctionNode.y - stairNode.y);
+      const distance = Math.hypot(junctionNode.x - roomNode.x, junctionNode.y - roomNode.y);
       if (distance < nearestDistance) {
         nearestDistance = distance;
         nearestJunctionId = junctionNodeId;
@@ -218,8 +219,8 @@ function buildGraph(): { edges: Map<string, GraphEdge[]>; nodesById: Map<string,
     });
 
     if (!nearestJunctionId) return;
-    addEdge(stairId, nearestJunctionId);
-    addEdge(nearestJunctionId, stairId);
+    addEdge(roomId, nearestJunctionId);
+    addEdge(nearestJunctionId, roomId);
   });
 
   const stairsByShaft = new Map<string, { id: string; floor: number }[]>();

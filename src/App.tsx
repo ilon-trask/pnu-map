@@ -34,10 +34,23 @@ export default function App() {
   const [floorDropdownOpen, setFloorDropdownOpen] = useState(false);
   const [buildingsPanelOpen, setBuildingsPanelOpen] = useState(false);
 
+
   const roomItems = useMemo(
     () => MAP_DATA.ROOMS.filter((room) => room.show !== false).map((room) => ({ id: room.id, name: room.name })),
     []
   );
+
+  const roomPoints = useMemo(
+    () =>
+      MAP_DATA.ROOMS.filter(room => getFloorFromRoomId(room.id) === selectedFloor).map((room) => ({
+        id: room.id,
+        x: room.x,
+        y: room.y,
+        floor: getFloorFromRoomId(room.id) ?? undefined,
+      })),
+    [selectedFloor]
+  );
+
   const selectedFloorName = useMemo(
     () => FLOORS.find((floor) => floor.id === selectedFloor)?.name ?? `Поверх ${selectedFloor}`,
     [selectedFloor]
@@ -63,6 +76,7 @@ export default function App() {
 
     mapApiRef.current = createMapCanvas(canvasRef.current, {
       getNodeById,
+      roomPoints,
       initialFloorImageSrc: FLOORS[0].imageSrc,
       onFloorHintClick: (floor) => applyFloorView(floor),
     });
@@ -77,6 +91,25 @@ export default function App() {
     mapApiRef.current?.setFloorImage(selectedFloorImageSrc);
     mapApiRef.current?.setActiveFloor(selectedFloor);
   }, [selectedFloor, selectedFloorImageSrc]);
+
+  useEffect(() => {
+    const api = mapApiRef.current as (MapCanvasApi & { setRoomPoints?: (points: typeof roomPoints) => void }) | null;
+    if (!api || !canvasRef.current) return;
+
+    if (typeof api.setRoomPoints === "function") {
+      api.setRoomPoints(roomPoints);
+      return;
+    }
+
+    // HMR-safe fallback for stale instances created before setRoomPoints existed.
+    api.destroy();
+    mapApiRef.current = createMapCanvas(canvasRef.current, {
+      getNodeById,
+      roomPoints,
+      initialFloorImageSrc: FLOORS[0].imageSrc,
+      onFloorHintClick: (floor) => applyFloorView(floor),
+    });
+  }, [roomPoints]);
 
   function doSearchPath() {
     if (!fromRoom || !toRoom || !mapApiRef.current) return;
