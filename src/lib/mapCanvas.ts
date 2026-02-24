@@ -45,6 +45,12 @@ export function createMapCanvas(canvas: HTMLCanvasElement, options: Options): Ma
   const DEFAULT_FLOOR_IMG_SRC = "/floors/1.svg";
   const INITIAL_VIEWPORT_PADDING_RATIO = 0.1;
   const TOUCH_PAN_MULTIPLIER = 1.35;
+  const isCoarsePointer = window.matchMedia("(pointer: coarse)").matches;
+  const PATH_STROKE_PX = isCoarsePointer ? 18 : 8;
+  const PIN_RADIUS_PX = isCoarsePointer ? 24 : 14;
+  const PIN_STROKE_PX = isCoarsePointer ? 5 : 3;
+  const PIN_LABEL_FONT_PX = isCoarsePointer ? 20 : 14;
+  const PIN_LABEL_OFFSET_PX = isCoarsePointer ? 22 : 15;
 
   const rawContext = canvas.getContext("2d");
   if (!rawContext) throw new Error("Cannot get 2D context");
@@ -288,12 +294,13 @@ export function createMapCanvas(canvas: HTMLCanvasElement, options: Options): Ma
   function drawPath() {
     if (currentPath.length < 2) return;
 
+    const transformScale = Math.max(0.001, getTransform().scale);
     context.strokeStyle = "#3fb98a";
-    context.lineWidth = 4;
+    context.lineWidth = PATH_STROKE_PX / transformScale;
     context.lineCap = "round";
     context.lineJoin = "round";
     context.shadowColor = "rgba(63, 185, 138, 0.4)";
-    context.shadowBlur = 10;
+    context.shadowBlur = (PATH_STROKE_PX + 6) / transformScale;
 
     context.beginPath();
     let segmentStarted = false;
@@ -391,43 +398,47 @@ export function createMapCanvas(canvas: HTMLCanvasElement, options: Options): Ma
   }
 
   function drawPins() {
+    const transformScale = Math.max(0.001, getTransform().scale);
+    const pinRadius = PIN_RADIUS_PX / transformScale;
+    const pinStrokeWidth = PIN_STROKE_PX / transformScale;
+    const labelFontSize = PIN_LABEL_FONT_PX / transformScale;
+    const labelOffset = (PIN_RADIUS_PX + PIN_LABEL_OFFSET_PX) / transformScale;
+
     if (fromRoomId) {
       const from = getNodeById(fromRoomId);
       if (from && isNodeOnActiveFloor(from)) {
-        const radius = 10;
         const x = mapX(from.x);
         const y = mapY(from.y);
         context.fillStyle = "#d4a024";
         context.strokeStyle = "rgba(255,255,255,0.9)";
-        context.lineWidth = 1.5;
+        context.lineWidth = pinStrokeWidth;
         context.beginPath();
-        context.arc(x, y, radius, 0, Math.PI * 2);
+        context.arc(x, y, pinRadius, 0, Math.PI * 2);
         context.fill();
         context.stroke();
         context.fillStyle = "#fff";
-        context.font = "10px sans-serif";
+        context.font = `${labelFontSize}px sans-serif`;
         context.textAlign = "center";
-        context.fillText("З", x, y + radius + 12);
+        context.fillText("З", x, y + labelOffset);
       }
     }
 
     if (toRoomId) {
       const to = getNodeById(toRoomId);
       if (to && isNodeOnActiveFloor(to)) {
-        const radius = 10;
         const x = mapX(to.x);
         const y = mapY(to.y);
         context.fillStyle = "#c75a77";
         context.strokeStyle = "rgba(255,255,255,0.9)";
-        context.lineWidth = 1.5;
+        context.lineWidth = pinStrokeWidth;
         context.beginPath();
-        context.arc(x, y, radius, 0, Math.PI * 2);
+        context.arc(x, y, pinRadius, 0, Math.PI * 2);
         context.fill();
         context.stroke();
         context.fillStyle = "#fff";
-        context.font = "10px sans-serif";
+        context.font = `${labelFontSize}px sans-serif`;
         context.textAlign = "center";
-        context.fillText("До", x, y + radius + 12);
+        context.fillText("До", x, y + labelOffset);
       }
     }
   }
