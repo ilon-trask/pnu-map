@@ -16,6 +16,15 @@ export type MapCanvasApi = {
 type Options = {
   getNodeById: (id: string) => PathNode | undefined;
   initialFloorImageSrc?: string;
+  onFloorHintClick?: (floor: number) => void;
+};
+
+type FloorHintTarget = {
+  left: number;
+  top: number;
+  width: number;
+  height: number;
+  targetFloor: number;
 };
 
 export function createMapCanvas(canvas: HTMLCanvasElement, options: Options): MapCanvasApi {
@@ -29,7 +38,7 @@ export function createMapCanvas(canvas: HTMLCanvasElement, options: Options): Ma
   if (!rawContext) throw new Error("Cannot get 2D context");
   const context: CanvasRenderingContext2D = rawContext;
 
-  const { getNodeById, initialFloorImageSrc } = options;
+  const { getNodeById, initialFloorImageSrc, onFloorHintClick } = options;
 
   let scale = 1;
   let offsetX = 0;
@@ -42,6 +51,7 @@ export function createMapCanvas(canvas: HTMLCanvasElement, options: Options): Ma
   let fromRoomId: string | null = null;
   let toRoomId: string | null = null;
   let activeFloor = 1;
+  let floorHintTargets: FloorHintTarget[] = [];
   let isDragging = false;
   let lastPointer = { x: 0, y: 0 };
   const activePointers = new Map<number, { x: number; y: number; pointerType: string }>();
@@ -54,6 +64,7 @@ export function createMapCanvas(canvas: HTMLCanvasElement, options: Options): Ma
   let hasInitializedViewport = false;
   let floorImageLoaded = false;
   let currentFloorImageSrc = initialFloorImageSrc ?? DEFAULT_FLOOR_IMG_SRC;
+  const accentColor = getComputedStyle(document.documentElement).getPropertyValue("--accent").trim() || "#a6dfe6";
 
   const floorImage = new Image();
   function resizeCanvasToContainer() {
@@ -142,6 +153,14 @@ export function createMapCanvas(canvas: HTMLCanvasElement, options: Options): Ma
     return Math.floor(numericValue / 100);
   }
 
+  function toMapPoint(canvasPoint: { x: number; y: number }) {
+    const transform = getTransform();
+    return {
+      x: (canvasPoint.x - transform.tx) / transform.scale,
+      y: (canvasPoint.y - transform.ty) / transform.scale,
+    };
+  }
+
   function isNodeOnActiveFloor(node: PathNode | undefined): boolean {
     if (!node) return false;
     if (typeof node.floor !== "number") return true;
@@ -149,9 +168,20 @@ export function createMapCanvas(canvas: HTMLCanvasElement, options: Options): Ma
   }
 
   function drawFloorTransitionHints() {
+    floorHintTargets = [];
     if (currentPath.length < 2) return;
 
     const seen = new Set<string>();
+    const transformScale = Math.max(0.001, getTransform().scale);
+    const fontSize = 32 / transformScale;
+    const lineGap = 6 / transformScale;
+    const paddingX = 24 / transformScale;
+    const paddingY = 14 / transformScale;
+    const offsetY = 74 / transformScale;
+    const borderWidth = 4 / transformScale;
+    const radius = 18 / transformScale;
+    const destinationNode = toRoomId ? getNodeById(toRoomId) : undefined;
+    const destinationFloor = destinationNode ? getFloorFromNode(destinationNode) : null;
 
     for (let i = 1; i < currentPath.length; i += 1) {
       const fromNode = currentPath[i - 1];
@@ -166,24 +196,25 @@ export function createMapCanvas(canvas: HTMLCanvasElement, options: Options): Ma
       if (seen.has(hintKey)) continue;
       seen.add(hintKey);
 
-      const text = `Сходи: на ${toFloor} поверх`;
+      const targetFloor = destinationFloor ?? toFloor;
+      const lines = ["СХОДИ", `НА ${targetFloor} ПОВЕРХ`];
       const x = mapX(fromNode.x);
-      const y = mapY(fromNode.y) - 22;
+      const y = mapY(fromNode.y) - offsetY;
 
-      context.font = "11px sans-serif";
+      context.font = `900 ${fontSize}px sans-serif`;
       context.textAlign = "center";
-      context.textBaseline = "middle";
-      const textWidth = context.measureText(text).width;
-      const paddingX = 10;
+      context.textBaseline = "top";
+      const textWidth = Math.max(...lines.map((line) => context.measureText(line).width));
+      const textHeight = lines.length * fontSize + (lines.length - 1) * lineGap;
       const width = textWidth + paddingX * 2;
-      const height = 22;
+      const height = textHeight + paddingY * 2;
       const left = x - width / 2;
       const top = y - height / 2;
-      const radius = 11;
+      floorHintTargets.push({ left, top, width, height, targetFloor });
 
-      context.fillStyle = "rgba(15, 18, 22, 0.92)";
-      context.strokeStyle = "rgba(63, 185, 138, 0.9)";
-      context.lineWidth = 1;
+      context.fillStyle = "rgba(8, 11, 14, 0.96)";
+      context.strokeStyle = accentColor;
+      context.lineWidth = borderWidth;
 
       context.beginPath();
       context.moveTo(left + radius, top);
@@ -200,8 +231,26 @@ export function createMapCanvas(canvas: HTMLCanvasElement, options: Options): Ma
       context.stroke();
 
       context.fillStyle = "#ffffff";
-      context.fillText(text, x, y);
+      context.strokeStyle = "rgba(8, 11, 14, 0.95)";
+      context.lineWidth = 6 / transformScale;
+      lines.forEach((line, index) => {
+        const lineY = top + paddingY + index * (fontSize + lineGap);
+        context.strokeText(line, x, lineY);
+        context.fillText(line, x, lineY);
+      });
     }
+  }
+
+  function getHintTargetFloorAt(canvasPoint: { x: number; y: number }): number | null {
+    const local = toMapPoint(canvasPoint);
+    const match = floorHintTargets.find(
+      (target) =>
+        local.x >= target.left &&
+        local.x <= target.left + target.width &&
+        local.y >= target.top &&
+        local.y <= target.top + target.height
+    );
+    return match?.targetFloor ?? null;
   }
 
   function drawPath() {
@@ -300,6 +349,17 @@ export function createMapCanvas(canvas: HTMLCanvasElement, options: Options): Ma
 
   function onPointerDown(e: PointerEvent) {
     const point = toCanvasPoint(e);
+    const hintFloor = getHintTargetFloorAt(point);
+    if (hintFloor !== null && hintFloor !== activeFloor) {
+      if (onFloorHintClick) {
+        onFloorHintClick(hintFloor);
+      } else {
+        activeFloor = hintFloor;
+        draw();
+      }
+      return;
+    }
+
     activePointers.set(e.pointerId, { ...point, pointerType: e.pointerType });
     canvas.setPointerCapture(e.pointerId);
 

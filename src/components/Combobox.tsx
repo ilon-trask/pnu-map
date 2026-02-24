@@ -62,7 +62,7 @@ export default function Combobox({ items, value, placeholder, inputId, onValueCh
     if (!open && (event.key === "ArrowDown" || event.key === "Enter" || event.key === " ")) {
       event.preventDefault();
       setOpen(true);
-      setQuery(selectedItem?.name ?? "");
+      setQuery(selectedItem?.name ?? value);
       setHighlightedIndex(filtered.length > 0 ? 0 : -1);
       return;
     }
@@ -117,14 +117,16 @@ export default function Combobox({ items, value, placeholder, inputId, onValueCh
           aria-expanded={open}
           aria-autocomplete="list"
           aria-haspopup="listbox"
-          value={open ? query : (selectedItem?.name ?? "")}
+          value={open ? query : (selectedItem?.name ?? value)}
           onFocus={() => {
             setOpen(true);
-            setQuery(selectedItem?.name ?? "");
+            setQuery(selectedItem?.name ?? value);
             setHighlightedIndex(filtered.length > 0 ? 0 : -1);
           }}
           onChange={(event) => {
-            setQuery(event.target.value);
+            const nextValue = event.target.value;
+            setQuery(nextValue);
+            onValueChange(nextValue);
             setOpen(true);
             setHighlightedIndex(0);
           }}

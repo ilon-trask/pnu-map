@@ -47,12 +47,24 @@ export default function App() {
     [selectedFloor]
   );
 
+  function applyFloorView(floor: number) {
+    if (!mapApiRef.current) return;
+
+    const imageSrc = FLOORS.find((item) => item.id === floor)?.imageSrc;
+    if (imageSrc) {
+      mapApiRef.current.setFloorImage(imageSrc);
+    }
+    mapApiRef.current.setActiveFloor(floor);
+    setSelectedFloor(floor);
+  }
+
   useEffect(() => {
     if (!canvasRef.current) return;
 
     mapApiRef.current = createMapCanvas(canvasRef.current, {
       getNodeById,
       initialFloorImageSrc: FLOORS[0].imageSrc,
+      onFloorHintClick: (floor) => applyFloorView(floor),
     });
 
     return () => {
@@ -67,19 +79,30 @@ export default function App() {
   }, [selectedFloor, selectedFloorImageSrc]);
 
   function doSearchPath() {
-    if (!fromRoom || !toRoom || !mapApiRef.current) return;
+    if (!mapApiRef.current) return;
+    if (!fromRoom || !toRoom) {
+      mapApiRef.current.setFromRoom(null);
+      mapApiRef.current.setToRoom(null);
+      mapApiRef.current.setPath([]);
+      return;
+    }
 
     const result = findClassPath(fromRoom, toRoom);
-    if (!result) return;
+    if (!result) {
+      mapApiRef.current.setFromRoom(null);
+      mapApiRef.current.setToRoom(null);
+      mapApiRef.current.setPath([]);
+      return;
+    }
+
+    const startFloor = getFloorFromRoomId(result.fromClassId);
+    if (startFloor !== null && startFloor !== selectedFloor) {
+      applyFloorView(startFloor);
+    }
 
     mapApiRef.current.setFromRoom(result.fromClassId);
     mapApiRef.current.setToRoom(result.toClassId);
     mapApiRef.current.setPath(result.path);
-
-    const startFloor = getFloorFromRoomId(result.fromClassId);
-    if (startFloor !== null) {
-      setSelectedFloor(startFloor);
-    }
   }
 
   function clearPath() {
