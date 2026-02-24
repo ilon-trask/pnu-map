@@ -12,6 +12,17 @@ const FLOORS = [
   { id: 4, name: "4", imageSrc: "/floors/4.svg" },
 ];
 
+function getFloorFromRoomId(roomId: string): number | null {
+  const numericPart = roomId.match(/(\d{3,4})/)?.[0];
+  if (!numericPart) return null;
+
+  const numericValue = Number(numericPart);
+  if (!Number.isFinite(numericValue) || numericValue < 100) return null;
+
+  const floor = Math.floor(numericValue / 100);
+  return floor > 0 ? floor : null;
+}
+
 export default function App() {
   const canvasRef = useRef<HTMLCanvasElement | null>(null);
   const mapApiRef = useRef<MapCanvasApi | null>(null);
@@ -24,7 +35,7 @@ export default function App() {
   const [buildingsPanelOpen, setBuildingsPanelOpen] = useState(false);
 
   const roomItems = useMemo(
-    () => MAP_DATA.ROOMS.filter((room) => room.id !== "stair").map((room) => ({ id: room.id, name: room.name })),
+    () => MAP_DATA.ROOMS.filter((room) => room.show !== false).map((room) => ({ id: room.id, name: room.name })),
     []
   );
   const selectedFloorName = useMemo(
@@ -52,7 +63,8 @@ export default function App() {
 
   useEffect(() => {
     mapApiRef.current?.setFloorImage(selectedFloorImageSrc);
-  }, [selectedFloorImageSrc]);
+    mapApiRef.current?.setActiveFloor(selectedFloor);
+  }, [selectedFloor, selectedFloorImageSrc]);
 
   function doSearchPath() {
     if (!fromRoom || !toRoom || !mapApiRef.current) return;
@@ -63,6 +75,11 @@ export default function App() {
     mapApiRef.current.setFromRoom(result.fromClassId);
     mapApiRef.current.setToRoom(result.toClassId);
     mapApiRef.current.setPath(result.path);
+
+    const startFloor = getFloorFromRoomId(result.fromClassId);
+    if (startFloor !== null) {
+      setSelectedFloor(startFloor);
+    }
   }
 
   function clearPath() {

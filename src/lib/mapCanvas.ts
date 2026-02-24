@@ -6,6 +6,7 @@ export type MapCanvasApi = {
   setPath: (path: PathNode[]) => void;
   setFromRoom: (id: string | null) => void;
   setToRoom: (id: string | null) => void;
+  setActiveFloor: (floor: number) => void;
   setFloorImage: (src: string) => void;
   getFromRoom: () => string | null;
   getToRoom: () => string | null;
@@ -40,6 +41,7 @@ export function createMapCanvas(canvas: HTMLCanvasElement, options: Options): Ma
   let currentPath: PathNode[] = [];
   let fromRoomId: string | null = null;
   let toRoomId: string | null = null;
+  let activeFloor = 1;
   let isDragging = false;
   let lastPointer = { x: 0, y: 0 };
   const activePointers = new Map<number, { x: number; y: number; pointerType: string }>();
@@ -128,6 +130,80 @@ export function createMapCanvas(canvas: HTMLCanvasElement, options: Options): Ma
     return y * coordScaleY;
   }
 
+  function getFloorFromNode(node: PathNode): number | null {
+    if (typeof node.floor === "number") return node.floor;
+
+    const numericPart = node.id.match(/(\d{3,4})/)?.[0];
+    if (!numericPart) return null;
+
+    const numericValue = Number(numericPart);
+    if (!Number.isFinite(numericValue) || numericValue < 100) return null;
+
+    return Math.floor(numericValue / 100);
+  }
+
+  function isNodeOnActiveFloor(node: PathNode | undefined): boolean {
+    if (!node) return false;
+    if (typeof node.floor !== "number") return true;
+    return node.floor === activeFloor;
+  }
+
+  function drawFloorTransitionHints() {
+    if (currentPath.length < 2) return;
+
+    const seen = new Set<string>();
+
+    for (let i = 1; i < currentPath.length; i += 1) {
+      const fromNode = currentPath[i - 1];
+      const toNode = currentPath[i];
+      const fromFloor = getFloorFromNode(fromNode);
+      const toFloor = getFloorFromNode(toNode);
+
+      if (fromFloor === null || toFloor === null || fromFloor === toFloor) continue;
+      if (fromFloor !== activeFloor) continue;
+
+      const hintKey = `${Math.round(fromNode.x)}:${Math.round(fromNode.y)}:${toFloor}`;
+      if (seen.has(hintKey)) continue;
+      seen.add(hintKey);
+
+      const text = `Сходи: на ${toFloor} поверх`;
+      const x = mapX(fromNode.x);
+      const y = mapY(fromNode.y) - 22;
+
+      context.font = "11px sans-serif";
+      context.textAlign = "center";
+      context.textBaseline = "middle";
+      const textWidth = context.measureText(text).width;
+      const paddingX = 10;
+      const width = textWidth + paddingX * 2;
+      const height = 22;
+      const left = x - width / 2;
+      const top = y - height / 2;
+      const radius = 11;
+
+      context.fillStyle = "rgba(15, 18, 22, 0.92)";
+      context.strokeStyle = "rgba(63, 185, 138, 0.9)";
+      context.lineWidth = 1;
+
+      context.beginPath();
+      context.moveTo(left + radius, top);
+      context.lineTo(left + width - radius, top);
+      context.quadraticCurveTo(left + width, top, left + width, top + radius);
+      context.lineTo(left + width, top + height - radius);
+      context.quadraticCurveTo(left + width, top + height, left + width - radius, top + height);
+      context.lineTo(left + radius, top + height);
+      context.quadraticCurveTo(left, top + height, left, top + height - radius);
+      context.lineTo(left, top + radius);
+      context.quadraticCurveTo(left, top, left + radius, top);
+      context.closePath();
+      context.fill();
+      context.stroke();
+
+      context.fillStyle = "#ffffff";
+      context.fillText(text, x, y);
+    }
+  }
+
   function drawPath() {
     if (currentPath.length < 2) return;
 
@@ -139,18 +215,35 @@ export function createMapCanvas(canvas: HTMLCanvasElement, options: Options): Ma
     context.shadowBlur = 10;
 
     context.beginPath();
-    context.moveTo(mapX(currentPath[0].x), mapY(currentPath[0].y));
-    for (let i = 1; i < currentPath.length; i += 1) {
-      context.lineTo(mapX(currentPath[i].x), mapY(currentPath[i].y));
+    let segmentStarted = false;
+    let hasVisibleSegment = false;
+
+    for (const node of currentPath) {
+      if (!isNodeOnActiveFloor(node)) {
+        segmentStarted = false;
+        continue;
+      }
+
+      const x = mapX(node.x);
+      const y = mapY(node.y);
+      if (!segmentStarted) {
+        context.moveTo(x, y);
+        segmentStarted = true;
+        continue;
+      }
+
+      context.lineTo(x, y);
+      hasVisibleSegment = true;
     }
-    context.stroke();
+
+    if (hasVisibleSegment) context.stroke();
     context.shadowBlur = 0;
   }
 
   function drawPins() {
     if (fromRoomId) {
       const from = getNodeById(fromRoomId);
-      if (from) {
+      if (from && isNodeOnActiveFloor(from)) {
         const radius = 10;
         const x = mapX(from.x);
         const y = mapY(from.y);
@@ -170,7 +263,7 @@ export function createMapCanvas(canvas: HTMLCanvasElement, options: Options): Ma
 
     if (toRoomId) {
       const to = getNodeById(toRoomId);
-      if (to) {
+      if (to && isNodeOnActiveFloor(to)) {
         const radius = 10;
         const x = mapX(to.x);
         const y = mapY(to.y);
@@ -200,6 +293,7 @@ export function createMapCanvas(canvas: HTMLCanvasElement, options: Options): Ma
     }
 
     drawPath();
+    drawFloorTransitionHints();
     drawPins();
     context.restore();
   }
@@ -383,6 +477,10 @@ export function createMapCanvas(canvas: HTMLCanvasElement, options: Options): Ma
     },
     setToRoom(id: string | null) {
       toRoomId = id;
+      draw();
+    },
+    setActiveFloor(floor: number) {
+      activeFloor = floor;
       draw();
     },
     setFloorImage(src: string) {
