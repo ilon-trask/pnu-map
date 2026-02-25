@@ -64,6 +64,8 @@ export function createMapCanvas(canvas: HTMLCanvasElement, options: Options): Ma
   const POINT_LABEL_PADDING_X_PX = isCoarsePointer ? 12 : 10;
   const POINT_LABEL_PADDING_Y_PX = isCoarsePointer ? 8 : 6;
   const POINT_LABEL_GAP_PX = isCoarsePointer ? 12 : 8;
+  const FLOOR_BADGE_LOGO_SRC = "/logo_trans.svg";
+  const FLOOR_BADGE_DEFAULT_RATIO = 0.62;
 
   const rawContext = canvas.getContext("2d");
   if (!rawContext) throw new Error("Cannot get 2D context");
@@ -120,6 +122,9 @@ export function createMapCanvas(canvas: HTMLCanvasElement, options: Options): Ma
   >();
 
   const floorImage = new Image();
+  const floorBadgeLogo = new Image();
+  let floorBadgeLogoLoaded = false;
+  let floorBadgeLogoFailed = false;
 
   function ensurePointImage(src: string) {
     const cached = pointImageCache.get(src);
@@ -532,6 +537,43 @@ export function createMapCanvas(canvas: HTMLCanvasElement, options: Options): Ma
     }
   }
 
+  function drawFloorBadge() {
+    const outsideOffsetX = mapWidth * 0.028;
+    const outsideOffsetY = mapHeight * 0.1;
+    const logoWidth = mapWidth * 0.1;
+    const logoRatio =
+      floorBadgeLogoLoaded && floorBadgeLogo.naturalWidth > 0
+        ? floorBadgeLogo.naturalWidth / floorBadgeLogo.naturalHeight
+        : FLOOR_BADGE_DEFAULT_RATIO;
+    const logoHeight = logoWidth / Math.max(0.001, logoRatio);
+    const logoX = mapWidth + outsideOffsetX;
+    const logoY = -outsideOffsetY;
+    const numberGap = -logoWidth * 0.1;
+    const fontSize = logoWidth * 0.68;
+    const floorLabel = String(activeFloor);
+
+    context.save();
+    context.fillStyle = "#ffffff";
+    context.strokeStyle = "rgba(8, 11, 14, 0.92)";
+    context.lineWidth = fontSize * 0.1;
+    context.font = `800 ${fontSize}px "DM Sans", "Segoe UI", sans-serif`;
+    context.textAlign = "right";
+    context.textBaseline = "middle";
+
+    const textX = logoX - numberGap;
+    const textY = logoY + logoHeight / 2;
+    context.strokeText(floorLabel, textX, textY);
+    context.fillText(floorLabel, textX, textY);
+
+    if (floorBadgeLogoLoaded && !floorBadgeLogoFailed) {
+      context.shadowColor = "rgba(8, 11, 14, 0.44)";
+      context.shadowBlur = logoWidth * 0.26;
+      context.drawImage(floorBadgeLogo, logoX, logoY, logoWidth, logoHeight);
+      context.shadowBlur = 0;
+    }
+    context.restore();
+  }
+
   function draw() {
     context.setTransform(1, 0, 0, 1, 0, 0);
     clear();
@@ -547,6 +589,7 @@ export function createMapCanvas(canvas: HTMLCanvasElement, options: Options): Ma
     drawPath();
     drawFloorTransitionHints();
     drawPins();
+    drawFloorBadge();
     context.restore();
   }
 
@@ -753,7 +796,18 @@ export function createMapCanvas(canvas: HTMLCanvasElement, options: Options): Ma
     draw();
   };
 
+  floorBadgeLogo.onload = () => {
+    floorBadgeLogoLoaded = true;
+    draw();
+  };
+
+  floorBadgeLogo.onerror = () => {
+    floorBadgeLogoFailed = true;
+    draw();
+  };
+
   loadFloorImage(currentFloorImageSrc);
+  floorBadgeLogo.src = FLOOR_BADGE_LOGO_SRC;
 
   canvas.addEventListener("pointerdown", onPointerDown);
   canvas.addEventListener("pointermove", onPointerMove);
