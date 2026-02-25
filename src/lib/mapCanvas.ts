@@ -57,8 +57,13 @@ export function createMapCanvas(canvas: HTMLCanvasElement, options: Options): Ma
   const PATH_STROKE_PX = isCoarsePointer ? 18 : 8;
   const PIN_RADIUS_PX = isCoarsePointer ? 24 : 14;
   const PIN_STROKE_PX = isCoarsePointer ? 5 : 3;
-  const PIN_LABEL_FONT_PX = isCoarsePointer ? 20 : 14;
+  const PIN_LABEL_FONT_PX = isCoarsePointer ? 20 : 20;
   const PIN_LABEL_OFFSET_PX = isCoarsePointer ? 22 : 15;
+  const POINT_LABEL_MIN_ZOOM = isCoarsePointer ? 0.75: 0.75;
+  const POINT_LABEL_FONT_PX = isCoarsePointer ? 16 : 12;
+  const POINT_LABEL_PADDING_X_PX = isCoarsePointer ? 12 : 10;
+  const POINT_LABEL_PADDING_Y_PX = isCoarsePointer ? 8 : 6;
+  const POINT_LABEL_GAP_PX = isCoarsePointer ? 12 : 8;
 
   const rawContext = canvas.getContext("2d");
   if (!rawContext) throw new Error("Cannot get 2D context");
@@ -371,6 +376,13 @@ export function createMapCanvas(canvas: HTMLCanvasElement, options: Options): Ma
     const transformScale = Math.max(0.001, getTransform().scale);
     const radius = 8 / transformScale;
     const strokeWidth = 2 / transformScale;
+    const labelBorderWidth = 1.5 / transformScale;
+    const showLabels = scale >= POINT_LABEL_MIN_ZOOM;
+    const labelFontSize = POINT_LABEL_FONT_PX / transformScale;
+    const labelPaddingX = POINT_LABEL_PADDING_X_PX / transformScale;
+    const labelPaddingY = POINT_LABEL_PADDING_Y_PX / transformScale;
+    const labelGap = POINT_LABEL_GAP_PX / transformScale;
+    const labelsToDraw: Array<{ text: string; x: number; y: number }> = [];
     context.fillStyle = "rgba(166, 223, 230, 0.95)";
     context.strokeStyle = "rgba(8, 11, 14, 0.92)";
     context.lineWidth = strokeWidth;
@@ -383,11 +395,16 @@ export function createMapCanvas(canvas: HTMLCanvasElement, options: Options): Ma
 
       const x = mapX(point.x);
       const y = mapY(point.y);
+      const iconSize = Math.max(16, point.iconSize ?? 68);
+      const markerRadius = point.iconSrc ? iconSize / 2 : radius;
+      const label = point.label?.trim();
+      if (showLabels && label) {
+        labelsToDraw.push({ text: label, x, y: y + markerRadius + labelGap });
+      }
 
       if (point.iconSrc) {
         const cached = ensurePointImage(point.iconSrc);
         if (cached.loaded && !cached.failed) {
-          const iconSize = Math.max(16, point.iconSize ?? 68);
           const left = x - iconSize / 2;
           const top = y - iconSize / 2;
           context.drawImage(cached.image, left, top, iconSize, iconSize);
@@ -399,6 +416,28 @@ export function createMapCanvas(canvas: HTMLCanvasElement, options: Options): Ma
       context.arc(x, y, radius, 0, Math.PI * 2);
       context.fill();
       context.stroke();
+    }
+
+    if (!showLabels || labelsToDraw.length === 0) return;
+
+    context.font = `700 ${labelFontSize}px sans-serif`;
+    context.textAlign = "center";
+    context.textBaseline = "middle";
+    for (const label of labelsToDraw) {
+      const textWidth = context.measureText(label.text).width;
+      const labelWidth = textWidth + labelPaddingX * 2;
+      const labelHeight = labelFontSize + labelPaddingY * 2;
+      const left = label.x - labelWidth / 2;
+      const top = label.y;
+
+      context.fillStyle = "rgba(8, 11, 14, 0.88)";
+      context.strokeStyle = "rgba(166, 223, 230, 0.8)";
+      context.lineWidth = labelBorderWidth;
+      context.fillRect(left, top, labelWidth, labelHeight);
+      context.strokeRect(left, top, labelWidth, labelHeight);
+
+      context.fillStyle = "#ffffff";
+      context.fillText(label.text, label.x, top + labelHeight / 2);
     }
   }
 

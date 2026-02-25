@@ -44,6 +44,18 @@ const roomNodes = new Map(
 );
 
 const roomIds = new Set(MAP_DATA.ROOMS.map((room) => room.id));
+const customPointNodes = new Map(
+  MAP_DATA.EDITABLE_POINTS.filter((point) => !roomIds.has(point.id)).map((point) => [
+    point.id,
+    {
+      id: point.id,
+      x: point.x,
+      y: point.y,
+      floor: point.floor,
+    } satisfies PathNode,
+  ])
+);
+const customPointIds = new Set(customPointNodes.keys());
 const stairRoomIds = Array.from(roomIds).filter((id) => isStairRoomId(id));
 
 const availableFloors = Array.from(
@@ -114,6 +126,10 @@ function isRoomNodeId(id: string): boolean {
   return roomIds.has(id);
 }
 
+function isCustomPointNodeId(id: string): boolean {
+  return customPointIds.has(id);
+}
+
 function isFloorScopedBaseNodeId(id: string): boolean {
   return junctionIds.has(id);
 }
@@ -140,6 +156,9 @@ function toGraphNodeId(baseId: string, floor: number): string | null {
   if (isRoomNodeId(baseId)) {
     return getFloorFromRoomId(baseId) === floor ? baseId : null;
   }
+  if (isCustomPointNodeId(baseId)) {
+    return customPointNodes.get(baseId)?.floor === floor ? baseId : null;
+  }
   if (isFloorScopedBaseNodeId(baseId)) {
     const scopedId = toFloorScopedId(baseId, floor);
     return junctionNodesById.has(scopedId) ? scopedId : null;
@@ -150,6 +169,8 @@ function toGraphNodeId(baseId: string, floor: number): string | null {
 function resolveNode(id: string): PathNode | undefined {
   const room = roomNodes.get(id);
   if (room) return room;
+  const point = customPointNodes.get(id);
+  if (point) return point;
 
   return junctionNodesById.get(id);
 }
@@ -283,6 +304,31 @@ function buildGraph(): { edges: Map<string, GraphEdge[]>; nodesById: Map<string,
     });
   });
 
+  customPointNodes.forEach((pointNode, pointId) => {
+    const floor = floorOfNode(pointNode);
+    if (floor === null) return;
+    const floorJunctions = junctionNodesByFloor.get(floor) ?? [];
+    if (floorJunctions.length === 0) return;
+
+    const rankedAnchors = floorJunctions
+      .filter((candidate) => candidate.id !== pointId)
+      .map((candidate) => ({
+        id: candidate.id,
+        distance: Math.hypot(candidate.x - pointNode.x, candidate.y - pointNode.y),
+      }))
+      .sort((a, b) => a.distance - b.distance);
+
+    const inRangeAnchors = rankedAnchors
+      .filter((candidate) => candidate.distance <= ROOM_CONNECTOR_MAX_DISTANCE)
+      .slice(0, ROOM_CONNECTOR_LINK_COUNT);
+
+    const nearestAnchors = inRangeAnchors.length > 0 ? inRangeAnchors : rankedAnchors.slice(0, 1);
+    nearestAnchors.forEach((anchor) => {
+      addEdge(pointId, anchor.id);
+      addEdge(anchor.id, pointId);
+    });
+  });
+
   const stairsByShaft = new Map<string, { id: string; floor: number }[]>();
   stairRoomIds.forEach((id) => {
     const floor = getFloorFromRoomId(id);
@@ -301,6 +347,9 @@ function buildGraph(): { edges: Map<string, GraphEdge[]>; nodesById: Map<string,
   });
 
   roomNodes.forEach((node, id) => {
+    if (!nodesById.has(id)) nodesById.set(id, node);
+  });
+  customPointNodes.forEach((node, id) => {
     if (!nodesById.has(id)) nodesById.set(id, node);
   });
 
@@ -390,19 +439,28 @@ function resolveClassroomId(query: string): string | null {
   const normalizedQuery = normalizeClassQuery(query);
   if (!normalizedQuery) return null;
 
-  const classesOnly = MAP_DATA.ROOMS.filter((room) => room.show !== false && !isStairRoomId(room.id));
+  const searchablePlaces = [
+    ...MAP_DATA.ROOMS.filter((room) => room.show !== false && !isStairRoomId(room.id)).map((room) => ({
+      id: room.id,
+      name: room.name,
+    })),
+    ...MAP_DATA.EDITABLE_POINTS.map((point) => ({
+      id: point.id,
+      name: point.title,
+    })),
+  ];
 
-  const exactIdMatch = classesOnly.find((room) => room.id.toLowerCase() === normalizedQuery);
-  if (exactIdMatch) return exactIdMatch.id;
+  const exactIdMatch = searchablePlaces.find((place) => place.id.toLowerCase() === normalizedQuery);
+  if (exactIdMatch && getNodeById(exactIdMatch.id)) return exactIdMatch.id;
 
   const idLike = normalizedQuery.match(/[0-9]{3}[a-zа-я]?/iu)?.[0];
   if (idLike) {
-    const idMatch = classesOnly.find((room) => room.id.toLowerCase() === idLike.toLowerCase());
-    if (idMatch) return idMatch.id;
+    const idMatch = searchablePlaces.find((place) => place.id.toLowerCase() === idLike.toLowerCase());
+    if (idMatch && getNodeById(idMatch.id)) return idMatch.id;
   }
 
-  const exactNameMatch = classesOnly.find((room) => normalizeClassQuery(room.name) === normalizedQuery);
-  if (exactNameMatch) return exactNameMatch.id;
+  const exactNameMatch = searchablePlaces.find((place) => normalizeClassQuery(place.name) === normalizedQuery);
+  if (exactNameMatch && getNodeById(exactNameMatch.id)) return exactNameMatch.id;
 
   return null;
 }

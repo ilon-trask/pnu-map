@@ -46,7 +46,27 @@ export default function App() {
   );
 
   const roomItems = useMemo(
-    () => MAP_DATA.ROOMS.filter((room) => room.show !== false).map((room) => ({ id: room.id, name: room.name })),
+    () => {
+      const items = new Map<string, string>();
+
+      MAP_DATA.ROOMS.filter((room) => room.show !== false).forEach((room) => {
+        items.set(room.id, room.name);
+      });
+
+      MAP_DATA.EDITABLE_POINTS.forEach((point) => {
+        const existingName = items.get(point.id);
+        if (!existingName) {
+          items.set(point.id, point.title);
+          return;
+        }
+
+        if (!existingName.toLowerCase().includes(point.title.toLowerCase())) {
+          items.set(point.id, `${point.title} (${existingName})`);
+        }
+      });
+
+      return Array.from(items.entries()).map(([id, name]) => ({ id, name }));
+    },
     []
   );
 

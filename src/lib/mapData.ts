@@ -41,6 +41,7 @@ export type MapPoint = {
   floor: number;
   x: number;
   y: number;
+  label?: string;
   iconSrc: string;
   iconSize?: number;
 };
@@ -117,7 +118,7 @@ const ROOMS: Room[] = [
   { id: "305", floor: 3, name: "Аудиторія 3.05", x: 220, y: 275, show: true },
   { id: "306", floor: 3, name: "Аудиторія 3.06", x: 160, y: 275, show: true },
   { id: "307", floor: 3, name: "Аудиторія 3.07", x: 55, y: 13, show: true },
-  { id: "308", floor: 3, name: "Аудиторія 3.08 (деканат)", x: 55, y: 60, show: true },
+  { id: "308", floor: 3, name: "Аудиторія 3.08", x: 55, y: 60, show: true },
   { id: "309", floor: 3, name: "Аудиторія 3.09", x: 55, y: 180, show: true },
   { id: "310", floor: 3, name: "Аудиторія 3.10", x: 55, y: 370, show: true },
   { id: "311", floor: 3, name: "Аудиторія 3.11", x: 55, y: 500, show: true },
@@ -290,6 +291,7 @@ const POINTS: MapPoint[] = EDITABLE_POINTS.map((point) => ({
   floor: point.floor,
   x: point.x,
   y: point.y,
+  label: point.title,
   iconSize: point.iconSize,
   iconSrc: `/points/${point.fileName ?? point.title}.svg`,
 }));
