@@ -18,6 +18,7 @@ export type MapCanvasApi = {
   setToRoom: (id: string | null) => void;
   setActiveFloor: (floor: number) => void;
   setFloorImage: (src: string) => void;
+  focusOnNode: (id: string, minZoom?: number) => void;
   getFromRoom: () => string | null;
   getToRoom: () => string | null;
   destroy: () => void;
@@ -96,6 +97,7 @@ export function createMapCanvas(canvas: HTMLCanvasElement, options: Options): Ma
   let hasInitializedViewport = false;
   let floorImageLoaded = false;
   let currentFloorImageSrc = initialFloorImageSrc ?? DEFAULT_FLOOR_IMG_SRC;
+  let pendingFocus: { id: string; minZoom: number } | null = null;
   const rootStyles = getComputedStyle(document.documentElement);
   const accentColor = rootStyles.getPropertyValue("--accent").trim() || "#a6dfe6";
   const mapWallColor = rootStyles.getPropertyValue("--map-wall").trim() || "#4f6072";
@@ -641,6 +643,28 @@ export function createMapCanvas(canvas: HTMLCanvasElement, options: Options): Ma
     offsetY = (canvas.height - scaledHeight) / 2;
   }
 
+  function focusOnNode(id: string, minZoom = 1.3) {
+    const node = getNodeById(id);
+    if (!node) return;
+
+    const nextMinZoom = Math.max(0.3, Math.min(3, minZoom));
+    if (!floorImageLoaded) {
+      pendingFocus = { id, minZoom: nextMinZoom };
+      return;
+    }
+
+    const targetX = mapX(node.x);
+    const targetY = mapY(node.y);
+    const baseScale = Math.min(canvas.width / mapWidth, canvas.height / mapHeight);
+    const nextScale = Math.max(scale, nextMinZoom);
+    const scaled = baseScale * nextScale;
+
+    scale = nextScale;
+    offsetX = canvas.width / 2 - targetX * scaled;
+    offsetY = canvas.height / 2 - targetY * scaled;
+    draw();
+  }
+
   function loadFloorImage(src: string) {
     if (!src) return;
     if (src === currentFloorImageSrc && floorImageLoaded) return;
@@ -660,6 +684,12 @@ export function createMapCanvas(canvas: HTMLCanvasElement, options: Options): Ma
       hasInitializedViewport = true;
     }
     floorImageLoaded = true;
+    if (pendingFocus) {
+      const request = pendingFocus;
+      pendingFocus = null;
+      focusOnNode(request.id, request.minZoom);
+      return;
+    }
     draw();
   };
 
@@ -713,6 +743,9 @@ export function createMapCanvas(canvas: HTMLCanvasElement, options: Options): Ma
     },
     setFloorImage(src: string) {
       loadFloorImage(src);
+    },
+    focusOnNode(id: string, minZoom = 1.3) {
+      focusOnNode(id, minZoom);
     },
     getFromRoom() {
       return fromRoomId;

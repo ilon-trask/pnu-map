@@ -29,8 +29,10 @@ export default function App() {
   const mapApiRef = useRef<MapCanvasApi | null>(null);
 
   const [pathPanelVisible, setPathPanelVisible] = useState(false);
+  const [findPanelVisible, setFindPanelVisible] = useState(false);
   const [fromRoom, setFromRoom] = useState("");
   const [toRoom, setToRoom] = useState("");
+  const [findRoom, setFindRoom] = useState("");
   const [selectedFloor, setSelectedFloor] = useState(1);
   const [floorDropdownOpen, setFloorDropdownOpen] = useState(false);
   const [buildingsPanelOpen, setBuildingsPanelOpen] = useState(false);
@@ -141,6 +143,39 @@ export default function App() {
     setPathPanelVisible(false);
   }
 
+  function doFindAuditory(targetRoomIdFromUi?: string) {
+    const targetRoomId = targetRoomIdFromUi || findRoom || toRoom || fromRoom;
+    if (!targetRoomId || !mapApiRef.current) return;
+
+    const targetNode = getNodeById(targetRoomId);
+    if (!targetNode) return;
+
+    const targetFloor =
+      getFloorFromRoomId(targetRoomId) ?? (typeof targetNode.floor === "number" ? targetNode.floor : null);
+    if (targetFloor !== null && targetFloor !== selectedFloor) {
+      applyFloorView(targetFloor);
+    }
+
+    setFromRoom("");
+    setToRoom(targetRoomId);
+    setFindRoom(targetRoomId);
+
+    mapApiRef.current.setFromRoom(null);
+    mapApiRef.current.setToRoom(targetRoomId);
+    mapApiRef.current.setPath([]);
+    mapApiRef.current.focusOnNode(targetRoomId, 1.35);
+    setPathPanelVisible(false);
+    setFindPanelVisible(false);
+  }
+
+  function openFindPanel() {
+    if (!findRoom && (toRoom || fromRoom)) {
+      setFindRoom(toRoom || fromRoom);
+    }
+    setPathPanelVisible(false);
+    setFindPanelVisible((prev) => !prev);
+  }
+
   function clearPath() {
     setFromRoom("");
     setToRoom("");
@@ -171,12 +206,15 @@ export default function App() {
         <canvas id="map-canvas" ref={canvasRef} width={800} height={600} />
 
         <div
-          className={`overlay  ${pathPanelVisible ? "visible" : ""}`}
+          className={`overlay  ${pathPanelVisible || findPanelVisible ? "visible" : ""}`}
           style={{
             background: 'none'
           }}
-          hidden={!pathPanelVisible}
-          onClick={() => setPathPanelVisible(false)}
+          hidden={!pathPanelVisible && !findPanelVisible}
+          onClick={() => {
+            setPathPanelVisible(false);
+            setFindPanelVisible(false);
+          }}
           aria-hidden="true"
         />
         <div
@@ -218,17 +256,63 @@ export default function App() {
             </button>
           </div>
         </div>
+
+        <div
+          className={`path-search-panel find-room-panel stadium-card ${findPanelVisible ? "visible" : ""}`}
+          style={{
+            "zIndex": 101
+          }}
+          onClick={(e) => e.stopPropagation()}
+        >
+          <div className="path-fields">
+            <div className="path-field">
+              <label htmlFor="find-room-input">Аудиторія</label>
+              <Select
+                items={roomItems}
+                placeholder="Оберіть аудиторію"
+                value={findRoom}
+                onValueChange={setFindRoom}
+                inputId="find-room-input"
+              />
+            </div>
+          </div>
+          <div className="path-actions">
+            <button type="button" className="btn-primary btn-pill" onClick={() => doFindAuditory(findRoom)} disabled={!findRoom}>
+              Знайти
+            </button>
+          </div>
+        </div>
       </main>
 
       <nav className="bottom-bar dock-wrap">
-        <div className="dock pill-dock">
-          <button type="button" className="icon-btn-nav round-sq" aria-label="Маршрут" onClick={() => setPathPanelVisible((prev) => !prev)}>
+        <div className="dock pill-dock main-dock">
+          <button
+            type="button"
+            className={`icon-btn-nav round-sq ${pathPanelVisible ? "active" : ""}`}
+            aria-label="Маршрут"
+            onClick={() => {
+              setFindPanelVisible(false);
+              setPathPanelVisible((prev) => !prev);
+            }}
+          >
             <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
               <path d="M5 9l7 6 7-6" />
               <path d="M5 15l7-6 7 6" />
             </svg>
           </button>
 
+          <button
+            type="button"
+            className={`icon-btn-nav round-sq ${findPanelVisible ? "active" : ""}`}
+            aria-label="Знайти аудиторію"
+            title="Знайти аудиторію"
+            onClick={openFindPanel}
+          >
+            <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+              <circle cx="11" cy="11" r="7" />
+              <path d="m20 20-3.5-3.5" />
+            </svg>
+          </button>
 
           <button type="button" className="icon-btn-nav round-sq" aria-label="Меню" onClick={() => setBuildingsPanelOpen(true)}>
             <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
