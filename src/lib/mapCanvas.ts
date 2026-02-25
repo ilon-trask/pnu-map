@@ -18,6 +18,7 @@ export type MapCanvasApi = {
   setToRoom: (id: string | null) => void;
   setActiveFloor: (floor: number) => void;
   setFloorImage: (src: string) => void;
+  resetView: () => void;
   focusOnNode: (id: string, minZoom?: number) => void;
   getFromRoom: () => string | null;
   getToRoom: () => string | null;
@@ -97,6 +98,7 @@ export function createMapCanvas(canvas: HTMLCanvasElement, options: Options): Ma
   let hasInitializedViewport = false;
   let floorImageLoaded = false;
   let currentFloorImageSrc = initialFloorImageSrc ?? DEFAULT_FLOOR_IMG_SRC;
+  let pendingViewportReset = false;
   let pendingFocus: { id: string; minZoom: number } | null = null;
   const rootStyles = getComputedStyle(document.documentElement);
   const accentColor = rootStyles.getPropertyValue("--accent").trim() || "#a6dfe6";
@@ -643,6 +645,16 @@ export function createMapCanvas(canvas: HTMLCanvasElement, options: Options): Ma
     offsetY = (canvas.height - scaledHeight) / 2;
   }
 
+  function resetView() {
+    if (!floorImageLoaded) {
+      pendingViewportReset = true;
+      return;
+    }
+
+    centerMapInViewport();
+    draw();
+  }
+
   function focusOnNode(id: string, minZoom = 1.3) {
     const node = getNodeById(id);
     if (!node) return;
@@ -684,6 +696,10 @@ export function createMapCanvas(canvas: HTMLCanvasElement, options: Options): Ma
       hasInitializedViewport = true;
     }
     floorImageLoaded = true;
+    if (pendingViewportReset) {
+      pendingViewportReset = false;
+      centerMapInViewport();
+    }
     if (pendingFocus) {
       const request = pendingFocus;
       pendingFocus = null;
@@ -743,6 +759,9 @@ export function createMapCanvas(canvas: HTMLCanvasElement, options: Options): Ma
     },
     setFloorImage(src: string) {
       loadFloorImage(src);
+    },
+    resetView() {
+      resetView();
     },
     focusOnNode(id: string, minZoom = 1.3) {
       focusOnNode(id, minZoom);

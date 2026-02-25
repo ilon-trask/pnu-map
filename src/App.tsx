@@ -140,11 +140,12 @@ export default function App() {
     mapApiRef.current.setFromRoom(result.fromClassId);
     mapApiRef.current.setToRoom(result.toClassId);
     mapApiRef.current.setPath(result.path);
+    mapApiRef.current.resetView();
     setPathPanelVisible(false);
   }
 
   function doFindAuditory(targetRoomIdFromUi?: string) {
-    const targetRoomId = targetRoomIdFromUi || findRoom || toRoom || fromRoom;
+    const targetRoomId = targetRoomIdFromUi || findRoom;
     if (!targetRoomId || !mapApiRef.current) return;
 
     const targetNode = getNodeById(targetRoomId);
@@ -156,10 +157,6 @@ export default function App() {
       applyFloorView(targetFloor);
     }
 
-    setFromRoom("");
-    setToRoom(targetRoomId);
-    setFindRoom(targetRoomId);
-
     mapApiRef.current.setFromRoom(null);
     mapApiRef.current.setToRoom(targetRoomId);
     mapApiRef.current.setPath([]);
@@ -169,9 +166,6 @@ export default function App() {
   }
 
   function openFindPanel() {
-    if (!findRoom && (toRoom || fromRoom)) {
-      setFindRoom(toRoom || fromRoom);
-    }
     setPathPanelVisible(false);
     setFindPanelVisible((prev) => !prev);
   }
