@@ -49,16 +49,8 @@ export default function App() {
   );
 
   const roomPoints = useMemo(
-    () =>
-      HIDE_MAP_DATA_POINTS
-        ? []
-        : MAP_DATA.ROOMS.filter(room => getFloorFromRoomId(room.id) === selectedFloor).map((room) => ({
-            id: room.id,
-            x: room.x,
-            y: room.y,
-            floor: getFloorFromRoomId(room.id) ?? undefined,
-          })),
-    [selectedFloor]
+    () => MAP_DATA.POINTS,
+    []
   );
 
   const selectedFloorName = useMemo(

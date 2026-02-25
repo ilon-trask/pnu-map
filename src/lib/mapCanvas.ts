@@ -11,7 +11,7 @@ type MapStructureData = {
 export type MapCanvasApi = {
   draw: () => void;
   resize: () => void;
-  setRoomPoints: (points: Array<Pick<PathNode, "id" | "x" | "y" | "floor">>) => void;
+  setRoomPoints: (points: MapMarker[]) => void;
   setStructureData: (data: MapStructureData) => void;
   setPath: (path: PathNode[]) => void;
   setFromRoom: (id: string | null) => void;
@@ -23,9 +23,15 @@ export type MapCanvasApi = {
   destroy: () => void;
 };
 
+export type MapMarker = Pick<PathNode, "id" | "x" | "y" | "floor"> & {
+  iconSrc?: string;
+  iconSize?: number;
+  label?: string;
+};
+
 type Options = {
   getNodeById: (id: string) => PathNode | undefined;
-  roomPoints?: Array<Pick<PathNode, "id" | "x" | "y" | "floor">>;
+  roomPoints?: MapMarker[];
   structureData?: MapStructureData;
   initialFloorImageSrc?: string;
   onFloorHintClick?: (floor: number) => void;
@@ -95,8 +101,35 @@ export function createMapCanvas(canvas: HTMLCanvasElement, options: Options): Ma
   const mapWallColor = rootStyles.getPropertyValue("--map-wall").trim() || "#4f6072";
   const mapCorridorColor = rootStyles.getPropertyValue("--map-corridor").trim() || "#2f4154";
   const mapJunctionColor = rootStyles.getPropertyValue("--map-junction").trim() || accentColor;
+  const pointImageCache = new Map<
+    string,
+    {
+      image: HTMLImageElement;
+      loaded: boolean;
+      failed: boolean;
+    }
+  >();
 
   const floorImage = new Image();
+
+  function ensurePointImage(src: string) {
+    const cached = pointImageCache.get(src);
+    if (cached) return cached;
+
+    const image = new Image();
+    const next = { image, loaded: false, failed: false };
+    image.onload = () => {
+      next.loaded = true;
+      draw();
+    };
+    image.onerror = () => {
+      next.failed = true;
+      draw();
+    };
+    image.src = src;
+    pointImageCache.set(src, next);
+    return next;
+  }
   function resizeCanvasToContainer() {
     const devicePixelRatio = window.devicePixelRatio || 1;
     const width = Math.max(1, Math.floor(canvas.clientWidth * devicePixelRatio));
@@ -337,6 +370,8 @@ export function createMapCanvas(canvas: HTMLCanvasElement, options: Options): Ma
     context.fillStyle = "rgba(166, 223, 230, 0.95)";
     context.strokeStyle = "rgba(8, 11, 14, 0.92)";
     context.lineWidth = strokeWidth;
+    context.imageSmoothingEnabled = true;
+    context.imageSmoothingQuality = "high";
 
     for (const point of roomPoints) {
       const pointFloor = getFloorFromNode(point);
@@ -344,6 +379,17 @@ export function createMapCanvas(canvas: HTMLCanvasElement, options: Options): Ma
 
       const x = mapX(point.x);
       const y = mapY(point.y);
+
+      if (point.iconSrc) {
+        const cached = ensurePointImage(point.iconSrc);
+        if (cached.loaded && !cached.failed) {
+          const iconSize = Math.max(16, point.iconSize ?? 68);
+          const left = x - iconSize / 2;
+          const top = y - iconSize / 2;
+          context.drawImage(cached.image, left, top, iconSize, iconSize);
+          continue;
+        }
+      }
 
       context.beginPath();
       context.arc(x, y, radius, 0, Math.PI * 2);
