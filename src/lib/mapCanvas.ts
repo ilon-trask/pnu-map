@@ -84,6 +84,10 @@ export function createMapCanvas(canvas: HTMLCanvasElement, options: Options): Ma
   let offsetY = 0;
   let mapWidth = LOGICAL_FLOOR_WIDTH;
   let mapHeight = LOGICAL_FLOOR_HEIGHT;
+  let floorDrawWidth = LOGICAL_FLOOR_WIDTH;
+  let floorDrawHeight = LOGICAL_FLOOR_HEIGHT;
+  let maxFloorImageWidth = LOGICAL_FLOOR_WIDTH;
+  let maxFloorImageHeight = LOGICAL_FLOOR_HEIGHT;
   let coordScaleX = 1;
   let coordScaleY = 1;
   let currentPath: PathNode[] = [];
@@ -144,6 +148,7 @@ export function createMapCanvas(canvas: HTMLCanvasElement, options: Options): Ma
     pointImageCache.set(src, next);
     return next;
   }
+
   function resizeCanvasToContainer() {
     const devicePixelRatio = window.devicePixelRatio || 1;
     const width = Math.max(1, Math.floor(canvas.clientWidth * devicePixelRatio));
@@ -538,24 +543,26 @@ export function createMapCanvas(canvas: HTMLCanvasElement, options: Options): Ma
   }
 
   function drawFloorBadge() {
-    const outsideOffsetX = mapWidth * 0.028;
-    const outsideOffsetY = mapHeight * 0.1;
     const logoWidth = mapWidth * 0.1;
     const logoRatio =
       floorBadgeLogoLoaded && floorBadgeLogo.naturalWidth > 0
         ? floorBadgeLogo.naturalWidth / floorBadgeLogo.naturalHeight
         : FLOOR_BADGE_DEFAULT_RATIO;
     const logoHeight = logoWidth / Math.max(0.001, logoRatio);
+    const outsideOffsetX = mapWidth * 0.028;
+    const outsideOffsetY = mapHeight * 0.1;
     const logoX = mapWidth + outsideOffsetX;
     const logoY = -outsideOffsetY;
-    const numberGap = -logoWidth * 0.1;
+    const numberGap = logoWidth * 0.04;
     const fontSize = logoWidth * 0.68;
     const floorLabel = String(activeFloor);
+    const strokeWidth = logoWidth * 0.07;
+    const shadowBlur = logoWidth * 0.26;
 
     context.save();
     context.fillStyle = "#ffffff";
     context.strokeStyle = "rgba(8, 11, 14, 0.92)";
-    context.lineWidth = fontSize * 0.1;
+    context.lineWidth = strokeWidth;
     context.font = `800 ${fontSize}px "DM Sans", "Segoe UI", sans-serif`;
     context.textAlign = "right";
     context.textBaseline = "middle";
@@ -567,7 +574,7 @@ export function createMapCanvas(canvas: HTMLCanvasElement, options: Options): Ma
 
     if (floorBadgeLogoLoaded && !floorBadgeLogoFailed) {
       context.shadowColor = "rgba(8, 11, 14, 0.44)";
-      context.shadowBlur = logoWidth * 0.26;
+      context.shadowBlur = shadowBlur;
       context.drawImage(floorBadgeLogo, logoX, logoY, logoWidth, logoHeight);
       context.shadowBlur = 0;
     }
@@ -581,7 +588,7 @@ export function createMapCanvas(canvas: HTMLCanvasElement, options: Options): Ma
     applyTransform();
 
     if (floorImageLoaded) {
-      context.drawImage(floorImage, 0, 0, mapWidth, mapHeight);
+      context.drawImage(floorImage, 0, 0, floorDrawWidth, floorDrawHeight);
     }
 
     drawStructureOverlay();
@@ -769,10 +776,14 @@ export function createMapCanvas(canvas: HTMLCanvasElement, options: Options): Ma
   }
 
   floorImage.onload = () => {
-    mapWidth = floorImage.naturalWidth || LOGICAL_FLOOR_WIDTH;
-    mapHeight = floorImage.naturalHeight || LOGICAL_FLOOR_HEIGHT;
-    coordScaleX = mapWidth / LOGICAL_FLOOR_WIDTH;
-    coordScaleY = mapHeight / LOGICAL_FLOOR_HEIGHT;
+    floorDrawWidth = floorImage.naturalWidth || LOGICAL_FLOOR_WIDTH;
+    floorDrawHeight = floorImage.naturalHeight || LOGICAL_FLOOR_HEIGHT;
+    maxFloorImageWidth = Math.max(maxFloorImageWidth, floorDrawWidth);
+    maxFloorImageHeight = Math.max(maxFloorImageHeight, floorDrawHeight);
+    mapWidth = maxFloorImageWidth;
+    mapHeight = maxFloorImageHeight;
+    coordScaleX = floorDrawWidth / LOGICAL_FLOOR_WIDTH;
+    coordScaleY = floorDrawHeight / LOGICAL_FLOOR_HEIGHT;
     if (!hasInitializedViewport) {
       centerMapInViewport();
       hasInitializedViewport = true;
