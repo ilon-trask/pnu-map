@@ -29,10 +29,7 @@ export type PointPlacement = {
     iconSize?: number;
 } & Node;
 
-export type StructureRect = [number, number, number, number];
 export type StructureData = {
-    walls: StructureRect[];
-    corridors: StructureRect[];
     junctions: Node[];
 };
 

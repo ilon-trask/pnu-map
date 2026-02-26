@@ -1,4 +1,4 @@
-import type { Building, Edge, Node,PointPlacement, Room, StructureData, StructureRect } from "./types";
+import type { Building, Node, PointPlacement, Room, StructureData } from "./types";
 
 const FLOOR_WIDTH = 800;
 const FLOOR_HEIGHT = 600;
@@ -134,36 +134,15 @@ function findNode(id: string): Node | undefined {
   return JUNCTIONS.find((item) => item.id === id);
 }
 
-const EDGES: Edge[] = [];
-
-const WALLS: StructureRect[] = [
-  [80, 185, 700, 90],
-  [0, 0, 55, 600],
-  [80, 325, 720, 90],
-];
-
-const CORRIDORS: StructureRect[] = [
-  [80, 280, 720, 40],
-  [55, 0, 25, 600],
-];
-
-const FLOOR_4_WALLS: StructureRect[] = [
-  [0, 0, 95, 600],
-];
-
-const FLOOR_4_CORRIDORS: StructureRect[] = [
-  [100, 0, 55, 600],
-];
-
 const FLOOR_4_JUNCTIONS: Node[] = [
   { id: "f4-j3", x: 140, y: 300 },
 ];
 
 const STRUCTURES_BY_FLOOR: Record<number, StructureData> = {
-  1: { walls: WALLS, corridors: CORRIDORS, junctions: JUNCTIONS },
-  2: { walls: WALLS, corridors: CORRIDORS, junctions: JUNCTIONS },
-  3: { walls: WALLS, corridors: CORRIDORS, junctions: JUNCTIONS },
-  4: { walls: FLOOR_4_WALLS, corridors: FLOOR_4_CORRIDORS, junctions: FLOOR_4_JUNCTIONS },
+  1: { junctions: JUNCTIONS },
+  2: { junctions: JUNCTIONS },
+  3: { junctions: JUNCTIONS },
+  4: { junctions: FLOOR_4_JUNCTIONS },
 };
 
 function getStructureDataByFloor(floor: number): StructureData {
@@ -199,10 +178,6 @@ const OTHER_BUILDINGS: Building[] = [
   },
 ];
 
-// Edit this array to place custom map points.
-// x/y use the same coordinate system as room coordinates.
-// id must be the id of the room the point refers to.
-// fileName is optional and lets you target exact file names from /public/points.
 const POINTS: PointPlacement[] = [
   { id: "self", title: "ХОЛ", src: "/points/ХОЛ.svg", floor: 1, x: 400, y: 320, iconSize: 82 },
   { id: "stair-102", title: "ЇДАЛЬНЯ", src: "/points/CANTEEN.svg", floor: 1, x: 462, y: 210, iconSize: 82 },
@@ -219,10 +194,7 @@ export const MAP_DATA = {
   NODES,
   JUNCTIONS,
   ALL_NODES,
-  EDGES,
   findNode,
-  WALLS,
-  CORRIDORS,
   STRUCTURES_BY_FLOOR,
   getStructureDataByFloor,
   OTHER_BUILDINGS,

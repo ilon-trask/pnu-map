@@ -54,16 +54,6 @@ function toFloorScopedId(baseId: string, floor: number): string {
   return `${baseId}${FLOOR_NODE_DELIMITER}${floor}`;
 }
 
-function fromFloorScopedId(nodeId: string): { baseId: string; floor: number } | null {
-  const [baseId, floorPart] = nodeId.split(FLOOR_NODE_DELIMITER);
-  if (!baseId || !floorPart) return null;
-
-  const floor = Number(floorPart);
-  if (!Number.isFinite(floor)) return null;
-
-  return { baseId, floor };
-}
-
 const junctionNodesByFloor = new Map<number, PathNode[]>(
   availableFloors.map((floor) => [
     floor,
