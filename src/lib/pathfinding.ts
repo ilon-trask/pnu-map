@@ -1,3 +1,4 @@
+import { getFloorFromIdentifier, getRoomCode } from "./floor";
 import { MAP_DATA } from "./mapData";
 import type { ClassPathResult, GraphEdge, OpenNode, PathNode } from "./types";
 
@@ -72,17 +73,6 @@ const junctionNodesById = new Map(
     .map((junction) => [junction.id, junction] as const)
 );
 
-function getFloorFromRoomId(roomId: string): number | null {
-  const numericPart = roomId.match(/(\d{3,4})/)?.[0];
-  if (!numericPart) return null;
-
-  const numericValue = Number(numericPart);
-  if (!Number.isFinite(numericValue) || numericValue < 100) return null;
-
-  const floor = Math.floor(numericValue / 100);
-  return floor > 0 ? floor : null;
-}
-
 function isStairRoomId(id: string): boolean {
   return id.startsWith(STAIR_ID_PREFIX) && roomIds.has(id);
 }
@@ -90,12 +80,9 @@ function isStairRoomId(id: string): boolean {
 function getStairShaftKey(id: string): string | null {
   if (!isStairRoomId(id)) return null;
 
-  const number = id.match(/(\d{3,4})/)?.[0];
-  if (number) {
-    const numericValue = Number(number);
-    if (Number.isFinite(numericValue) && numericValue >= 100) {
-      return String(numericValue % 100).padStart(2, "0");
-    }
+  const roomCode = getRoomCode(id);
+  if (roomCode !== null) {
+    return String(roomCode % 100).padStart(2, "0");
   }
 
   return id.slice(STAIR_ID_PREFIX.length) || null;
@@ -126,7 +113,7 @@ function buildGraph(): { edges: Map<string, GraphEdge[]>; nodesById: Map<string,
 
   const stairNodesByFloor = new Map<number, PathNode[]>();
   stairRoomIds.forEach((stairId) => {
-    const floor = getFloorFromRoomId(stairId);
+    const floor = getFloorFromIdentifier(stairId);
     const node = resolveNode(stairId);
     if (floor === null || !node) return;
     if (!stairNodesByFloor.has(floor)) stairNodesByFloor.set(floor, []);
@@ -151,6 +138,30 @@ function buildGraph(): { edges: Map<string, GraphEdge[]>; nodesById: Map<string,
     const dist = forcedDistance ?? edgeDistance(fromWithId, toWithId);
     if (!edges.has(fromId)) edges.set(fromId, []);
     edges.get(fromId)?.push({ ...toWithId, dist });
+  }
+
+  function getNearestAnchorIds(
+    sourceId: string,
+    sourceNode: PathNode,
+    floorJunctions: PathNode[]
+  ): string[] {
+    const rankedAnchors = floorJunctions
+      .filter((candidate) => candidate.id !== sourceId)
+      .map((candidate) => ({
+        id: candidate.id,
+        distance: Math.hypot(candidate.x - sourceNode.x, candidate.y - sourceNode.y),
+      }))
+      .sort((a, b) => a.distance - b.distance);
+
+    const inRangeAnchors = rankedAnchors
+      .filter((candidate) => candidate.distance <= ROOM_CONNECTOR_MAX_DISTANCE)
+      .slice(0, ROOM_CONNECTOR_LINK_COUNT)
+      .map((candidate) => candidate.id);
+
+    if (inRangeAnchors.length > 0) return inRangeAnchors;
+
+    const fallbackAnchor = rankedAnchors[0];
+    return fallbackAnchor ? [fallbackAnchor.id] : [];
   }
 
   // Supplement sparse/incomplete static edges by connecting each junction to nearby
@@ -179,30 +190,18 @@ function buildGraph(): { edges: Map<string, GraphEdge[]>; nodesById: Map<string,
   // Ensure every room has a floor-local connector to the nearest junction.
   // This corrects stale/manual edge definitions that can force long detours.
   roomIds.forEach((roomId) => {
-    const floor = getFloorFromRoomId(roomId);
+    const floor = getFloorFromIdentifier(roomId);
     const roomNode = resolveNode(roomId);
     if (floor === null || !roomNode) return;
     const floorJunctions = junctionNodesByFloor.get(floor) ?? [];
     if (floorJunctions.length === 0) return;
     // Keep corridor semantics: rooms connect into corridor junctions first.
     // This guarantees class routes pass through at least one junction.
-    const rankedAnchors = floorJunctions
-      .filter((candidate) => candidate.id !== roomId)
-      .map((candidate) => ({
-        id: candidate.id,
-        distance: Math.hypot(candidate.x - roomNode.x, candidate.y - roomNode.y),
-      }))
-      .sort((a, b) => a.distance - b.distance);
+    const nearestAnchorIds = getNearestAnchorIds(roomId, roomNode, floorJunctions);
 
-    const inRangeAnchors = rankedAnchors
-      .filter((candidate) => candidate.distance <= ROOM_CONNECTOR_MAX_DISTANCE)
-      .slice(0, ROOM_CONNECTOR_LINK_COUNT);
-
-    const nearestAnchors = inRangeAnchors.length > 0 ? inRangeAnchors : rankedAnchors.slice(0, 1);
-
-    nearestAnchors.forEach((anchor) => {
-      addEdge(roomId, anchor.id);
-      addEdge(anchor.id, roomId);
+    nearestAnchorIds.forEach((anchorId) => {
+      addEdge(roomId, anchorId);
+      addEdge(anchorId, roomId);
     });
   });
 
@@ -212,28 +211,16 @@ function buildGraph(): { edges: Map<string, GraphEdge[]>; nodesById: Map<string,
     const floorJunctions = junctionNodesByFloor.get(floor) ?? [];
     if (floorJunctions.length === 0) return;
 
-    const rankedAnchors = floorJunctions
-      .filter((candidate) => candidate.id !== pointId)
-      .map((candidate) => ({
-        id: candidate.id,
-        distance: Math.hypot(candidate.x - pointNode.x, candidate.y - pointNode.y),
-      }))
-      .sort((a, b) => a.distance - b.distance);
-
-    const inRangeAnchors = rankedAnchors
-      .filter((candidate) => candidate.distance <= ROOM_CONNECTOR_MAX_DISTANCE)
-      .slice(0, ROOM_CONNECTOR_LINK_COUNT);
-
-    const nearestAnchors = inRangeAnchors.length > 0 ? inRangeAnchors : rankedAnchors.slice(0, 1);
-    nearestAnchors.forEach((anchor) => {
-      addEdge(pointId, anchor.id);
-      addEdge(anchor.id, pointId);
+    const nearestAnchorIds = getNearestAnchorIds(pointId, pointNode, floorJunctions);
+    nearestAnchorIds.forEach((anchorId) => {
+      addEdge(pointId, anchorId);
+      addEdge(anchorId, pointId);
     });
   });
 
   const stairsByShaft = new Map<string, { id: string; floor: number }[]>();
   stairRoomIds.forEach((id) => {
-    const floor = getFloorFromRoomId(id);
+    const floor = getFloorFromIdentifier(id);
     const shaft = getStairShaftKey(id);
     if (floor === null || !shaft) return;
     if (!stairsByShaft.has(shaft)) stairsByShaft.set(shaft, []);

@@ -1,22 +1,16 @@
 import { useEffect, useMemo, useRef, useState } from "react";
 import "./App.css";
 import Select from "./components/Select";
+import { getFloorFromEntity, getFloorFromIdentifier } from "./lib/floor";
 import { createMapCanvas, type MapCanvasApi } from "./lib/mapCanvas";
 import { MAP_DATA } from "./lib/mapData";
 import { findClassPath, getNodeById } from "./lib/pathfinding";
 
 const HIDE_MAP_DATA_POINTS = true;
-
-function getFloorFromRoomId(roomId: string): number | null {
-  const numericPart = roomId.match(/(\d{3,4})/)?.[0];
-  if (!numericPart) return null;
-
-  const numericValue = Number(numericPart);
-  if (!Number.isFinite(numericValue) || numericValue < 100) return null;
-
-  const floor = Math.floor(numericValue / 100);
-  return floor > 0 ? floor : null;
-}
+const DEFAULT_FLOOR = MAP_DATA.FLOORS[0];
+const FLOOR_BY_ID = new Map(MAP_DATA.FLOORS.map((floor) => [floor.id, floor]));
+const ROOM_POINTS = MAP_DATA.POINTS;
+const EMPTY_STRUCTURE_DATA = { walls: [], corridors: [], junctions: [] };
 
 export default function App() {
   const canvasRef = useRef<HTMLCanvasElement | null>(null);
@@ -34,39 +28,62 @@ export default function App() {
   const structureData = useMemo(
     () =>
       HIDE_MAP_DATA_POINTS
-        ? { walls: [], corridors: [], junctions: [] }
+        ? EMPTY_STRUCTURE_DATA
         : MAP_DATA.getStructureDataByFloor(selectedFloor),
     [selectedFloor]
   );
-
-  const roomItems = useMemo(
-    () => MAP_DATA.ROOMS.filter((room) => room.show !== false).map((room) => ({ id: room.id, name: room.name })),
+  const initialStructureData = useMemo(
+    () =>
+      HIDE_MAP_DATA_POINTS
+        ? EMPTY_STRUCTURE_DATA
+        : MAP_DATA.getStructureDataByFloor(DEFAULT_FLOOR.id),
     []
   );
 
-  const roomPoints = useMemo(
-    () => MAP_DATA.POINTS,
-    []
-  );
+  const selectableItems = useMemo(() => {
+    const pointTitlesById = MAP_DATA.POINTS.reduce((acc, point) => {
+      const titles = acc.get(point.id) ?? [];
+      titles.push(point.title);
+      acc.set(point.id, titles);
+      return acc;
+    }, new Map<string, string[]>());
 
-  const selectedFloorName = useMemo(
-    () => MAP_DATA.FLOORS.find((floor) => floor.id === selectedFloor)?.name ?? `Поверх ${selectedFloor}`,
-    [selectedFloor]
-  );
-  const selectedFloorImageSrc = useMemo(
-    () => MAP_DATA.FLOORS.find((floor) => floor.id === selectedFloor)?.imageSrc ?? MAP_DATA.FLOORS[0].imageSrc,
-    [selectedFloor]
-  );
+    const visibleRooms = MAP_DATA.ROOMS.filter((room) => room.show !== false);
+    const visibleRoomIds = new Set(visibleRooms.map((room) => room.id));
+
+    const roomItems = visibleRooms.map((room) => {
+      const pointTitles = pointTitlesById.get(room.id);
+      if (!pointTitles?.length) return { id: room.id, name: room.name };
+
+      return {
+        id: room.id,
+        name: `${room.name} • ${pointTitles.join(", ")}`,
+      };
+    });
+
+    const pointOnlyItems = MAP_DATA.POINTS.reduce<Array<{ id: string; name: string }>>((acc, point) => {
+      if (visibleRoomIds.has(point.id) || acc.some((item) => item.id === point.id)) return acc;
+      acc.push({ id: point.id, name: point.title });
+      return acc;
+    }, []);
+
+    return [...roomItems, ...pointOnlyItems];
+  }, []);
+
+  const selectedFloorMeta = FLOOR_BY_ID.get(selectedFloor) ?? DEFAULT_FLOOR;
+  const selectedFloorName = selectedFloorMeta.name || `Поверх ${selectedFloor}`;
+  const selectedFloorImageSrc = selectedFloorMeta.imageSrc;
 
   function applyFloorView(floor: number) {
+    setSelectedFloor(floor);
+
     if (!mapApiRef.current) return;
 
-    const imageSrc = MAP_DATA.FLOORS.find((item) => item.id === floor)?.imageSrc;
-    if (imageSrc) {
-      mapApiRef.current.setFloorImage(imageSrc);
+    const nextFloor = FLOOR_BY_ID.get(floor);
+    if (nextFloor) {
+      mapApiRef.current.setFloorImage(nextFloor.imageSrc);
     }
     mapApiRef.current.setActiveFloor(floor);
-    setSelectedFloor(floor);
   }
 
   useEffect(() => {
@@ -74,9 +91,9 @@ export default function App() {
 
     mapApiRef.current = createMapCanvas(canvasRef.current, {
       getNodeById,
-      roomPoints,
-      structureData,
-      initialFloorImageSrc: MAP_DATA.FLOORS[0].imageSrc,
+      roomPoints: ROOM_POINTS,
+      structureData: initialStructureData,
+      initialFloorImageSrc: DEFAULT_FLOOR.imageSrc,
       onFloorHintClick: (floor) => applyFloorView(floor),
     });
 
@@ -84,7 +101,7 @@ export default function App() {
       mapApiRef.current?.destroy();
       mapApiRef.current = null;
     };
-  }, []);
+  }, [initialStructureData]);
 
   useEffect(() => {
     mapApiRef.current?.setFloorImage(selectedFloorImageSrc);
@@ -94,14 +111,14 @@ export default function App() {
   useEffect(() => {
     const api = mapApiRef.current as
       | (MapCanvasApi & {
-        setRoomPoints?: (points: typeof roomPoints) => void;
+        setRoomPoints?: (points: typeof ROOM_POINTS) => void;
         setStructureData?: (data: typeof structureData) => void;
       })
       | null;
     if (!api || !canvasRef.current) return;
 
     if (typeof api.setRoomPoints === "function" && typeof api.setStructureData === "function") {
-      api.setRoomPoints(roomPoints);
+      api.setRoomPoints(ROOM_POINTS);
       api.setStructureData(structureData);
       return;
     }
@@ -110,12 +127,12 @@ export default function App() {
     api.destroy();
     mapApiRef.current = createMapCanvas(canvasRef.current, {
       getNodeById,
-      roomPoints,
+      roomPoints: ROOM_POINTS,
       structureData,
-      initialFloorImageSrc: MAP_DATA.FLOORS[0].imageSrc,
+      initialFloorImageSrc: DEFAULT_FLOOR.imageSrc,
       onFloorHintClick: (floor) => applyFloorView(floor),
     });
-  }, [roomPoints, structureData]);
+  }, [structureData]);
 
   function doSearchPath() {
     if (!fromRoom || !toRoom || !mapApiRef.current) return;
@@ -126,7 +143,7 @@ export default function App() {
     setFromRoom(result.fromClassId);
     setToRoom(result.toClassId);
 
-    const startFloor = getFloorFromRoomId(result.fromClassId);
+    const startFloor = getFloorFromIdentifier(result.fromClassId);
     if (startFloor !== null && startFloor !== selectedFloor) {
       applyFloorView(startFloor);
     }
@@ -144,8 +161,7 @@ export default function App() {
     const targetNode = getNodeById(targetRoomId);
     if (!targetNode) return;
 
-    const targetFloor =
-      getFloorFromRoomId(targetRoomId) ?? (typeof targetNode.floor === "number" ? targetNode.floor : null);
+    const targetFloor = getFloorFromEntity(targetNode);
     if (targetFloor !== null && targetFloor !== selectedFloor) {
       applyFloorView(targetFloor);
     }
@@ -195,7 +211,7 @@ export default function App() {
         <div
           className={`overlay  ${pathPanelVisible || findPanelVisible ? "visible" : ""}`}
           style={{
-            background: 'none'
+            background: "none",
           }}
           hidden={!pathPanelVisible && !findPanelVisible}
           onClick={() => {
@@ -207,7 +223,7 @@ export default function App() {
         <div
           className={`path-search-panel stadium-card ${pathPanelVisible ? "visible" : ""}`}
           style={{
-            "zIndex": 101
+            zIndex: 101,
           }}
           onClick={(e) => e.stopPropagation()}
         >
@@ -215,8 +231,8 @@ export default function App() {
             <div className="path-field">
               <label htmlFor="from-room-input">З</label>
               <Select
-                items={roomItems}
-                placeholder="Оберіть аудиторію"
+                items={selectableItems}
+                placeholder="Оберіть локацію"
                 value={fromRoom}
                 onValueChange={setFromRoom}
                 inputId="from-room-input"
@@ -225,8 +241,8 @@ export default function App() {
             <div className="path-field">
               <label htmlFor="to-room-input">До</label>
               <Select
-                items={roomItems}
-                placeholder="Оберіть аудиторію"
+                items={selectableItems}
+                placeholder="Оберіть локацію"
                 value={toRoom}
                 onValueChange={setToRoom}
                 inputId="to-room-input"
@@ -247,16 +263,16 @@ export default function App() {
         <div
           className={`path-search-panel find-room-panel stadium-card ${findPanelVisible ? "visible" : ""}`}
           style={{
-            "zIndex": 101
+            zIndex: 101,
           }}
           onClick={(e) => e.stopPropagation()}
         >
           <div className="path-fields">
             <div className="path-field">
-              <label htmlFor="find-room-input">Аудиторія</label>
+              <label htmlFor="find-room-input">Локація</label>
               <Select
-                items={roomItems}
-                placeholder="Оберіть аудиторію"
+                items={selectableItems}
+                placeholder="Оберіть локацію"
                 value={findRoom}
                 onValueChange={setFindRoom}
                 inputId="find-room-input"
@@ -322,7 +338,7 @@ export default function App() {
       <div
         className={`overlay ${floorDropdownOpen ? "visible" : ""}`}
         style={{
-          background: 'none'
+          background: "none",
         }}
         hidden={!floorDropdownOpen}
         onClick={() => setFloorDropdownOpen(false)}
@@ -336,7 +352,7 @@ export default function App() {
               data-floor={floor.id}
               className={floor.id === selectedFloor ? "active" : ""}
               onClick={() => {
-                setSelectedFloor(floor.id);
+                applyFloorView(floor.id);
                 setFloorDropdownOpen(false);
               }}
             >

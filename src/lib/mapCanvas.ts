@@ -1,3 +1,4 @@
+import { getFloorFromEntity } from "./floor";
 import type {  PathNode, StructureData } from "./types";
 
 
@@ -106,8 +107,6 @@ export function createMapCanvas(canvas: HTMLCanvasElement, options: Options) {
   let pendingFocus: { id: string; minZoom: number } | null = null;
   const rootStyles = getComputedStyle(document.documentElement);
   const accentColor = rootStyles.getPropertyValue("--accent").trim() || "#a6dfe6";
-  const mapWallColor = rootStyles.getPropertyValue("--map-wall").trim() || "#4f6072";
-  const mapCorridorColor = rootStyles.getPropertyValue("--map-corridor").trim() || "#2f4154";
   const mapJunctionColor = rootStyles.getPropertyValue("--map-junction").trim() || accentColor;
   const pointImageCache = new Map<
     string,
@@ -216,24 +215,8 @@ export function createMapCanvas(canvas: HTMLCanvasElement, options: Options) {
     return y * coordScaleY;
   }
 
-  function mapW(w: number) {
-    return w * coordScaleX;
-  }
-
-  function mapH(h: number) {
-    return h * coordScaleY;
-  }
-
   function getFloorFromNode(node: PathNode): number | null {
-    if (typeof node.floor === "number") return node.floor;
-
-    const numericPart = node.id.match(/(\d{3,4})/)?.[0];
-    if (!numericPart) return null;
-
-    const numericValue = Number(numericPart);
-    if (!Number.isFinite(numericValue) || numericValue < 100) return null;
-
-    return Math.floor(numericValue / 100);
+    return getFloorFromEntity(node);
   }
 
   function toMapPoint(canvasPoint: { x: number; y: number }) {
