@@ -38,11 +38,7 @@ const customPointNodes = new Map(
 
 const stairRoomIds = Array.from(roomIds).filter((id) => isStairRoomId(id));
 
-const availableFloors = Array.from(
-  new Set(
-    DATA.ROOMS.filter((room) => !isStairRoomId(room.id)).map(room => room.floor)
-  )
-).sort((a, b) => a - b);
+const availableFloors = DATA.FLOORS.map(el => el.id).sort((a, b) => a - b);
 
 function getJunctionsForFloor(floor: number): Array<Pick<PathNode, "id" | "x" | "y">> {
   const structure = DATA.getStructureDataByFloor(floor);
@@ -154,8 +150,6 @@ function buildGraph(): { edges: Map<string, GraphEdge[]>; nodesById: Map<string,
     return fallbackAnchor ? [fallbackAnchor.id] : [];
   }
 
-  // Supplement sparse/incomplete static edges by connecting each junction to nearby
-  // local neighbors on the same floor. This prevents long detours in straight corridors.
   availableFloors.forEach((floor) => {
     const scopedJunctions = junctionNodesByFloor.get(floor) ?? [];
 
@@ -177,15 +171,11 @@ function buildGraph(): { edges: Map<string, GraphEdge[]>; nodesById: Map<string,
     });
   });
 
-  // Ensure every room has a floor-local connector to the nearest junction.
-  // This corrects stale/manual edge definitions that can force long detours.
   roomIds.forEach((roomId) => {
     const roomNode = roomNodes.get(roomId);
     if (!roomNode) return;
     const floorJunctions = junctionNodesByFloor.get(roomNode.floor) ?? [];
     if (floorJunctions.length === 0) return;
-    // Keep corridor semantics: rooms connect into corridor junctions first.
-    // This guarantees class routes pass through at least one junction.
     const nearestAnchorIds = getNearestAnchorIds(roomId, roomNode, floorJunctions);
 
     nearestAnchorIds.forEach((anchorId) => {
@@ -307,40 +297,6 @@ function findPath(fromId: string, toId: string): PathNode[] | null {
   return null;
 }
 
-function normalizeClassQuery(value: string): string {
-  return value.toLowerCase().trim().replace(/\s+/g, " ").replace(/^аудиторія\s*/u, "");
-}
-
-function resolveClassroomId(query: string): string | null {
-  const normalizedQuery = normalizeClassQuery(query);
-  if (!normalizedQuery) return null;
-
-  const searchablePlaces = [
-    ...DATA.ROOMS.filter((room) => room.show !== false && !isStairRoomId(room.id)).map((room) => ({
-      id: room.id,
-      name: room.name,
-    })),
-    ...DATA.POINTS.map((point) => ({
-      id: point.id,
-      name: point.title,
-    })),
-  ];
-
-  const exactIdMatch = searchablePlaces.find((place) => place.id.toLowerCase() === normalizedQuery);
-  if (exactIdMatch && getNodeById(exactIdMatch.id)) return exactIdMatch.id;
-
-  const idLike = normalizedQuery.match(/[0-9]{3}[a-zа-я]?/iu)?.[0];
-  if (idLike) {
-    const idMatch = searchablePlaces.find((place) => place.id.toLowerCase() === idLike.toLowerCase());
-    if (idMatch && getNodeById(idMatch.id)) return idMatch.id;
-  }
-
-  const exactNameMatch = searchablePlaces.find((place) => normalizeClassQuery(place.name) === normalizedQuery);
-  if (exactNameMatch && getNodeById(exactNameMatch.id)) return exactNameMatch.id;
-
-  return null;
-}
-
 function calculatePathDistance(path: PathNode[]): number {
   if (path.length < 2) return 0;
 
@@ -351,11 +307,7 @@ function calculatePathDistance(path: PathNode[]): number {
   return distance;
 }
 
-export function findClassPath(fromClass: string, toClass: string): ClassPathResult | null {
-  const fromClassId = resolveClassroomId(fromClass);
-  const toClassId = resolveClassroomId(toClass);
-  if (!fromClassId || !toClassId) return null;
-
+export function findClassPath(fromClassId: string, toClassId: string): ClassPathResult | null {
   if (fromClassId === toClassId) {
     const node = getNodeById(fromClassId);
     if (!node) return null;
