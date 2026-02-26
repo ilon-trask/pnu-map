@@ -1,7 +1,6 @@
 import type { Building, Node, PointPlacement, Room, StructureData } from "./types";
 
-const FLOOR_WIDTH = 800;
-const FLOOR_HEIGHT = 600;
+const STAIR_ID_PREFIX = "stair-";
 
 const FLOORS = [
   { id: 1, name: "1", imageSrc: "/floors/1.svg" },
@@ -92,30 +91,20 @@ const ROOMS: Room[] = [
   { id: "404", floor: 4, name: "Аудиторія 4.04", x: 105, y: 370, show: true },
   { id: "405", floor: 4, name: "Аудиторія 4.05", x: 105, y: 500, show: true },
 
-  { id: "stair-101", floor: 1, name: "Сходи", x: 55, y: 305, show: false },
-  { id: "stair-102", floor: 1, name: "Сходи", x: 465, y: 275, show: false },
-  { id: "stair-103", floor: 1, name: "Сходи", x: 730, y: 275, show: false },
+  { id: STAIR_ID_PREFIX + "101", floor: 1, name: "Сходи", x: 55, y: 305, show: false },
+  { id: STAIR_ID_PREFIX + "102", floor: 1, name: "Сходи", x: 465, y: 275, show: false },
+  { id: STAIR_ID_PREFIX + "103", floor: 1, name: "Сходи", x: 730, y: 275, show: false },
 
-  { id: "stair-201", floor: 2, name: "Сходи", x: 55, y: 305, show: false },
-  { id: "stair-202", floor: 2, name: "Сходи", x: 465, y: 275, show: false },
-  { id: "stair-203", floor: 2, name: "Сходи", x: 730, y: 275, show: false },
+  { id: STAIR_ID_PREFIX + "201", floor: 2, name: "Сходи", x: 55, y: 305, show: false },
+  { id: STAIR_ID_PREFIX + "202", floor: 2, name: "Сходи", x: 465, y: 275, show: false },
+  { id: STAIR_ID_PREFIX + "203", floor: 2, name: "Сходи", x: 730, y: 275, show: false },
 
-  { id: "stair-301", floor: 3, name: "Сходи", x: 55, y: 305, show: false },
-  { id: "stair-302", floor: 3, name: "Сходи", x: 465, y: 275, show: false },
-  { id: "stair-303", floor: 3, name: "Сходи", x: 730, y: 275, show: false },
+  { id: STAIR_ID_PREFIX + "301", floor: 3, name: "Сходи", x: 55, y: 305, show: false },
+  { id: STAIR_ID_PREFIX + "302", floor: 3, name: "Сходи", x: 465, y: 275, show: false },
+  { id: STAIR_ID_PREFIX + "303", floor: 3, name: "Сходи", x: 730, y: 275, show: false },
 
-  { id: "stair-401", floor: 4, name: "Сходи", x: 105, y: 300, show: false },
+  { id: STAIR_ID_PREFIX + "401", floor: 4, name: "Сходи", x: 105, y: 300, show: false },
 ];
-
-function getRoomCenter(room: Room): Node {
-  return {
-    id: room.id,
-    x: room.x,
-    y: room.y,
-  };
-}
-
-const NODES: Node[] = ROOMS.map(getRoomCenter);
 
 const JUNCTIONS: Node[] = [
   { id: "j1", x: 70, y: 300 },
@@ -125,14 +114,6 @@ const JUNCTIONS: Node[] = [
   { id: "j5", x: 590, y: 300 },
   { id: "j6", x: 190, y: 300 },
 ];
-
-const ALL_NODES: Node[] = [...NODES, ...JUNCTIONS];
-
-function findNode(id: string): Node | undefined {
-  const room = ROOMS.find((item) => item.id === id);
-  if (room) return getRoomCenter(room);
-  return JUNCTIONS.find((item) => item.id === id);
-}
 
 const FLOOR_4_JUNCTIONS: Node[] = [
   { id: "f4-j3", x: 140, y: 300 },
@@ -187,17 +168,12 @@ const POINTS: PointPlacement[] = [
   { id: "308", title: "ДЕКАНАТ", src: "/points/ДЕКАНАТ.svg", floor: 3, x: 30, y: 50, iconSize: 82 },
 ];
 
-export const MAP_DATA = {
-  FLOOR_WIDTH,
-  FLOOR_HEIGHT,
+export const DATA = {
   ROOMS,
-  NODES,
   JUNCTIONS,
-  ALL_NODES,
-  findNode,
-  STRUCTURES_BY_FLOOR,
   getStructureDataByFloor,
   OTHER_BUILDINGS,
   POINTS,
   FLOORS,
+  STAIR_ID_PREFIX
 };

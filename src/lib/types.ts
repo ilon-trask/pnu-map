@@ -11,11 +11,6 @@ export type Room = {
 } & Node;
 
 
-export type Edge = {
-    from: string;
-    to: string;
-};
-
 export type Building = {
     id: string;
     name: string;
