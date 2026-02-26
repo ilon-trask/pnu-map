@@ -1,4 +1,4 @@
-import type { PathNode } from "./pathfinding";
+import type {  PathNode } from "./types";
 
 type StructureRect = [number, number, number, number];
 type StructureJunction = Pick<PathNode, "x" | "y">;
@@ -26,9 +26,9 @@ export type MapCanvasApi = {
 };
 
 export type MapMarker = Pick<PathNode, "id" | "x" | "y" | "floor"> & {
-  iconSrc?: string;
+  src: string;
   iconSize?: number;
-  label?: string;
+  title: string;
 };
 
 type Options = {
@@ -59,7 +59,7 @@ export function createMapCanvas(canvas: HTMLCanvasElement, options: Options): Ma
   const PIN_STROKE_PX = isCoarsePointer ? 5 : 3;
   const PIN_LABEL_FONT_PX = isCoarsePointer ? 20 : 20;
   const PIN_LABEL_OFFSET_PX = isCoarsePointer ? 22 : 15;
-  const POINT_LABEL_MIN_ZOOM = isCoarsePointer ? 0.75: 0.75;
+  const POINT_LABEL_MIN_ZOOM = isCoarsePointer ? 0.75 : 0.75;
   const POINT_LABEL_FONT_PX = isCoarsePointer ? 16 : 12;
   const POINT_LABEL_PADDING_X_PX = isCoarsePointer ? 12 : 10;
   const POINT_LABEL_PADDING_Y_PX = isCoarsePointer ? 8 : 6;
@@ -406,14 +406,14 @@ export function createMapCanvas(canvas: HTMLCanvasElement, options: Options): Ma
       const x = mapX(point.x);
       const y = mapY(point.y);
       const iconSize = Math.max(16, point.iconSize ?? 68);
-      const markerRadius = point.iconSrc ? iconSize / 2 : radius;
-      const label = point.label?.trim();
+      const markerRadius = point.src ? iconSize / 2 : radius;
+      const label = point.title?.trim();
       if (showLabels && label) {
         labelsToDraw.push({ text: label, x, y: y + markerRadius + labelGap });
       }
 
-      if (point.iconSrc) {
-        const cached = ensurePointImage(point.iconSrc);
+      if (point.src) {
+        const cached = ensurePointImage(point.src);
         if (cached.loaded && !cached.failed) {
           const left = x - iconSize / 2;
           const top = y - iconSize / 2;

@@ -1,60 +1,14 @@
-export type Room = {
-  id: string;
-  name: string;
-  floor: number;
-  x: number;
-  y: number;
-  show: boolean;
-};
-
-export type PointNode = {
-  id: string;
-  x: number;
-  y: number;
-  name?: string;
-  floor?: number;
-};
-
-export type Edge = {
-  from: string;
-  to: string;
-};
-
-export type OtherBuilding = {
-  id: string;
-  name: string;
-  address: string;
-};
-
-export type PointPlacement = {
-  id: Room["id"];
-  title: string;
-  fileName?: string;
-  floor: number;
-  x: number;
-  y: number;
-  iconSize?: number;
-};
-
-export type MapPoint = {
-  id: string;
-  floor: number;
-  x: number;
-  y: number;
-  label?: string;
-  iconSrc: string;
-  iconSize?: number;
-};
-
-export type StructureRect = [number, number, number, number];
-export type StructureData = {
-  walls: StructureRect[];
-  corridors: StructureRect[];
-  junctions: PointNode[];
-};
+import type { Building, Edge, Node,PointPlacement, Room, StructureData, StructureRect } from "./types";
 
 const FLOOR_WIDTH = 800;
 const FLOOR_HEIGHT = 600;
+
+const FLOORS = [
+  { id: 1, name: "1", imageSrc: "/floors/1.svg" },
+  { id: 2, name: "2", imageSrc: "/floors/2.svg" },
+  { id: 3, name: "3", imageSrc: "/floors/3.svg" },
+  { id: 4, name: "4", imageSrc: "/floors/4.svg" },
+];
 
 const ROOMS: Room[] = [
   { id: "101", floor: 1, name: "Аудиторія 1.01", x: 700, y: 275, show: true },
@@ -153,19 +107,17 @@ const ROOMS: Room[] = [
   { id: "stair-401", floor: 4, name: "Сходи", x: 105, y: 300, show: false },
 ];
 
-function getRoomCenter(room: Room): PointNode {
+function getRoomCenter(room: Room): Node {
   return {
     id: room.id,
-    name: room.name,
     x: room.x,
     y: room.y,
-    floor: room.floor,
   };
 }
 
-const NODES: PointNode[] = ROOMS.map(getRoomCenter);
+const NODES: Node[] = ROOMS.map(getRoomCenter);
 
-const JUNCTIONS: PointNode[] = [
+const JUNCTIONS: Node[] = [
   { id: "j1", x: 70, y: 300 },
   { id: "j2", x: 465, y: 300 },
   { id: "j3", x: 730, y: 300 },
@@ -174,41 +126,15 @@ const JUNCTIONS: PointNode[] = [
   { id: "j6", x: 190, y: 300 },
 ];
 
-const ALL_NODES: PointNode[] = [...NODES, ...JUNCTIONS];
+const ALL_NODES: Node[] = [...NODES, ...JUNCTIONS];
 
-function findNode(id: string): PointNode | undefined {
+function findNode(id: string): Node | undefined {
   const room = ROOMS.find((item) => item.id === id);
   if (room) return getRoomCenter(room);
   return JUNCTIONS.find((item) => item.id === id);
 }
 
 const EDGES: Edge[] = [];
-
-function addBidi(a: string, b: string): void {
-  EDGES.push({ from: a, to: b });
-  EDGES.push({ from: b, to: a });
-}
-
-["101", "102"].forEach((id) => addBidi(id, "j1"));
-["103", "104"].forEach((id) => addBidi(id, "j2"));
-["105", "106", "107", "108"].forEach((id) => addBidi(id, "j3"));
-["201", "202", "203", "204"].forEach((id) => addBidi(id, "j4"));
-["301", "302", "303", "304"].forEach((id) => addBidi(id, "j6"));
-["401", "402"].forEach((id) => addBidi(id, "j8"));
-addBidi("403", "j9");
-["404", "405"].forEach((id) => addBidi(id, "j10"));
-addBidi("stair", "j5");
-[
-  ["j1", "j2"],
-  ["j2", "j3"],
-  ["j1", "j4"],
-  ["j4", "j5"],
-  ["j5", "j6"],
-  ["j5", "j7"],
-  ["j7", "j8"],
-  ["j7", "j9"],
-  ["j7", "j10"],
-].forEach(([a, b]) => addBidi(a, b));
 
 const WALLS: StructureRect[] = [
   [80, 185, 700, 90],
@@ -229,7 +155,7 @@ const FLOOR_4_CORRIDORS: StructureRect[] = [
   [100, 0, 55, 600],
 ];
 
-const FLOOR_4_JUNCTIONS: PointNode[] = [
+const FLOOR_4_JUNCTIONS: Node[] = [
   { id: "f4-j3", x: 140, y: 300 },
 ];
 
@@ -244,7 +170,7 @@ function getStructureDataByFloor(floor: number): StructureData {
   return STRUCTURES_BY_FLOOR[floor] ?? STRUCTURES_BY_FLOOR[1];
 }
 
-const OTHER_BUILDINGS: OtherBuilding[] = [
+const OTHER_BUILDINGS: Building[] = [
   { id: "b1", name: "Корпус № 1 (Адміністративний)", address: "вул. Шевченка, 57 (технічний), Івано-Франківськ" },
   { id: "b2", name: "Корпус № 2 (Аудиторний)", address: "вул. Шевченка, 57 (гуманітарний), Івано-Франківськ" },
   { id: "b3", name: "Корпус № 4 (Бібліотека/Актова зала)", address: "вул. Шевченка, 57, Івано-Франківськ" },
@@ -277,24 +203,14 @@ const OTHER_BUILDINGS: OtherBuilding[] = [
 // x/y use the same coordinate system as room coordinates.
 // id must be the id of the room the point refers to.
 // fileName is optional and lets you target exact file names from /public/points.
-const EDITABLE_POINTS: PointPlacement[] = [
-  { id: "self", title: "ХОЛ", fileName: "ХОЛ", floor: 1, x: 400, y: 320, iconSize: 82 },
-  { id: "stair-102", title: "ЇДАЛЬНЯ", fileName: "CANTEEN", floor: 1, x: 462, y: 210, iconSize: 82 },
-  { id: "204", title: "РЕКТОР", fileName: "РЕКТОР", floor: 2, x: 422, y: 210, iconSize: 82 },
-  { id: "223", title: "БУХГАЛТЕРІЯ", fileName: "БУХГАЛТЕРІЯ", floor: 2, x: 400, y: 340, iconSize: 82 },
-  { id: "319", title: "КАФЕДРА", fileName: "КАФЕДРА", floor: 3, x: 728, y: 340, iconSize: 82 },
-  { id: "308", title: "ДЕКАНАТ", fileName: "ДЕКАНАТ", floor: 3, x: 30, y: 50, iconSize: 82 },
+const POINTS: PointPlacement[] = [
+  { id: "self", title: "ХОЛ", src: "/points/ХОЛ.svg", floor: 1, x: 400, y: 320, iconSize: 82 },
+  { id: "stair-102", title: "ЇДАЛЬНЯ", src: "/points/CANTEEN.svg", floor: 1, x: 462, y: 210, iconSize: 82 },
+  { id: "204", title: "РЕКТОР", src: "/points/РЕКТОР.svg", floor: 2, x: 422, y: 210, iconSize: 82 },
+  { id: "223", title: "БУХГАЛТЕРІЯ", src: "/points/БУХГАЛТЕРІЯ.svg", floor: 2, x: 400, y: 340, iconSize: 82 },
+  { id: "319", title: "КАФЕДРА", src: "/points/КАФЕДРА.svg", floor: 3, x: 728, y: 340, iconSize: 82 },
+  { id: "308", title: "ДЕКАНАТ", src: "/points/ДЕКАНАТ.svg", floor: 3, x: 30, y: 50, iconSize: 82 },
 ];
-
-const POINTS: MapPoint[] = EDITABLE_POINTS.map((point) => ({
-  id: point.id,
-  floor: point.floor,
-  x: point.x,
-  y: point.y,
-  label: point.title,
-  iconSize: point.iconSize,
-  iconSrc: `/points/${point.fileName ?? point.title}.svg`,
-}));
 
 export const MAP_DATA = {
   FLOOR_WIDTH,
@@ -310,6 +226,6 @@ export const MAP_DATA = {
   STRUCTURES_BY_FLOOR,
   getStructureDataByFloor,
   OTHER_BUILDINGS,
-  EDITABLE_POINTS,
   POINTS,
+  FLOORS,
 };

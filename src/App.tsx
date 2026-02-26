@@ -5,12 +5,6 @@ import { createMapCanvas, type MapCanvasApi } from "./lib/mapCanvas";
 import { MAP_DATA } from "./lib/mapData";
 import { findClassPath, getNodeById } from "./lib/pathfinding";
 
-const FLOORS = [
-  { id: 1, name: "1", imageSrc: "/floors/1.svg" },
-  { id: 2, name: "2", imageSrc: "/floors/2.svg" },
-  { id: 3, name: "3", imageSrc: "/floors/3.svg" },
-  { id: 4, name: "4", imageSrc: "/floors/4.svg" },
-];
 const HIDE_MAP_DATA_POINTS = true;
 
 function getFloorFromRoomId(roomId: string): number | null {
@@ -46,27 +40,7 @@ export default function App() {
   );
 
   const roomItems = useMemo(
-    () => {
-      const items = new Map<string, string>();
-
-      MAP_DATA.ROOMS.filter((room) => room.show !== false).forEach((room) => {
-        items.set(room.id, room.name);
-      });
-
-      MAP_DATA.EDITABLE_POINTS.forEach((point) => {
-        const existingName = items.get(point.id);
-        if (!existingName) {
-          items.set(point.id, point.title);
-          return;
-        }
-
-        if (!existingName.toLowerCase().includes(point.title.toLowerCase())) {
-          items.set(point.id, `${point.title} (${existingName})`);
-        }
-      });
-
-      return Array.from(items.entries()).map(([id, name]) => ({ id, name }));
-    },
+    () => MAP_DATA.ROOMS.filter((room) => room.show !== false).map((room) => ({ id: room.id, name: room.name })),
     []
   );
 
@@ -76,18 +50,18 @@ export default function App() {
   );
 
   const selectedFloorName = useMemo(
-    () => FLOORS.find((floor) => floor.id === selectedFloor)?.name ?? `Поверх ${selectedFloor}`,
+    () => MAP_DATA.FLOORS.find((floor) => floor.id === selectedFloor)?.name ?? `Поверх ${selectedFloor}`,
     [selectedFloor]
   );
   const selectedFloorImageSrc = useMemo(
-    () => FLOORS.find((floor) => floor.id === selectedFloor)?.imageSrc ?? FLOORS[0].imageSrc,
+    () => MAP_DATA.FLOORS.find((floor) => floor.id === selectedFloor)?.imageSrc ?? MAP_DATA.FLOORS[0].imageSrc,
     [selectedFloor]
   );
 
   function applyFloorView(floor: number) {
     if (!mapApiRef.current) return;
 
-    const imageSrc = FLOORS.find((item) => item.id === floor)?.imageSrc;
+    const imageSrc = MAP_DATA.FLOORS.find((item) => item.id === floor)?.imageSrc;
     if (imageSrc) {
       mapApiRef.current.setFloorImage(imageSrc);
     }
@@ -102,7 +76,7 @@ export default function App() {
       getNodeById,
       roomPoints,
       structureData,
-      initialFloorImageSrc: FLOORS[0].imageSrc,
+      initialFloorImageSrc: MAP_DATA.FLOORS[0].imageSrc,
       onFloorHintClick: (floor) => applyFloorView(floor),
     });
 
@@ -120,9 +94,9 @@ export default function App() {
   useEffect(() => {
     const api = mapApiRef.current as
       | (MapCanvasApi & {
-          setRoomPoints?: (points: typeof roomPoints) => void;
-          setStructureData?: (data: typeof structureData) => void;
-        })
+        setRoomPoints?: (points: typeof roomPoints) => void;
+        setStructureData?: (data: typeof structureData) => void;
+      })
       | null;
     if (!api || !canvasRef.current) return;
 
@@ -138,7 +112,7 @@ export default function App() {
       getNodeById,
       roomPoints,
       structureData,
-      initialFloorImageSrc: FLOORS[0].imageSrc,
+      initialFloorImageSrc: MAP_DATA.FLOORS[0].imageSrc,
       onFloorHintClick: (floor) => applyFloorView(floor),
     });
   }, [roomPoints, structureData]);
@@ -160,7 +134,6 @@ export default function App() {
     mapApiRef.current.setFromRoom(result.fromClassId);
     mapApiRef.current.setToRoom(result.toClassId);
     mapApiRef.current.setPath(result.path);
-    mapApiRef.current.resetView();
     setPathPanelVisible(false);
   }
 
@@ -357,7 +330,7 @@ export default function App() {
       <div className="dropdown-panel rounded-card floor-dropdown-panel" hidden={!floorDropdownOpen}>
         <h3>Поверх</h3>
         <ul className="floor-list floor-pills">
-          {FLOORS.map((floor) => (
+          {MAP_DATA.FLOORS.map((floor) => (
             <li
               key={floor.id}
               data-floor={floor.id}
