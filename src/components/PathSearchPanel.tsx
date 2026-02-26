@@ -40,6 +40,7 @@ export default function PathSearchPanel({
     mapApiRef.current.setFromRoom(result.fromClassId);
     mapApiRef.current.setToRoom(result.toClassId);
     mapApiRef.current.setPath(result.path);
+    mapApiRef.current.resetViewportToDefault();
     onClose();
   }
 

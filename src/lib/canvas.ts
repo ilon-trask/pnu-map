@@ -77,6 +77,7 @@ export class Canvas {
   private floorImageLoaded = false;
   private currentFloorImageSrc: string;
   private pendingFocus: { id: string; minZoom: number } | null = null;
+  private pendingViewportReset = false;
   private readonly pointImageCache = new Map<
     string,
     {
@@ -157,6 +158,17 @@ export class Canvas {
 
   setFloorImage(src: string) {
     this.loadFloorImage(src);
+  }
+
+  resetViewportToDefault() {
+    if (!this.floorImageLoaded) {
+      this.pendingViewportReset = true;
+      return;
+    }
+
+    this.pendingViewportReset = false;
+    this.centerMapInViewport();
+    this.draw();
   }
 
   focusOnNode(id: string, minZoom = 1.3) {
@@ -759,8 +771,14 @@ export class Canvas {
     if (this.pendingFocus) {
       const request = this.pendingFocus;
       this.pendingFocus = null;
+      this.pendingViewportReset = false;
       this.focusOnNode(request.id, request.minZoom);
       return;
+    }
+
+    if (this.pendingViewportReset) {
+      this.pendingViewportReset = false;
+      this.centerMapInViewport();
     }
     this.draw();
   };
