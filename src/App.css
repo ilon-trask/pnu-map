@@ -1,30 +1,21 @@
-/*
- * Інтернатура — Навігація
- * Design: wayfinding-first, calm, map-as-hero. One accent (teal) for direction/action.
- */
 
 :root {
-  /* Surfaces — whisper elevation, slate world */
   --surface-base: #0f1216;
   --surface-raised: #161b22;
   --surface-overlay: #1c2229;
   --surface-card: #1a1f26;
 
-  /* Ink */
   --ink: #e6edf3;
   --ink-secondary: #8b949e;
   --ink-tertiary: #6e7681;
 
-  /* Border — light but findable */
   --border: rgba(255, 255, 255, 0.06);
   --border-strong: rgba(255, 255, 255, 0.1);
 
-  /* Wayfinding accent — one color for "go" and primary actions */
   --accent: #a6dfe6;
   --accent-hover: #8cd3dc;
   --accent-muted: rgba(166, 223, 230, 0.2);
 
-  /* Path semantics (from / to) */
   --pin-from: #d4a024;
   --pin-from-bg: rgba(212, 160, 36, 0.2);
   --pin-to: #c75a77;
@@ -32,14 +23,12 @@
   --path-line: #a6dfe6;
   --path-glow: rgba(166, 223, 230, 0.4);
 
-  /* Map canvas (used by JS for drawing) */
   --map-bg: #0f1216;
   --map-wall: #4f6072;
   --map-corridor: #2f4154;
   --map-junction: #f2cc72;
   --map-room-stroke: rgba(166, 223, 230, 0.35);
 
-  /* System */
   --space-unit: 8px;
   --radius: 10px;
   --radius-sm: 6px;
@@ -74,7 +63,6 @@ body {
   min-height: 100dvh;
 }
 
-/* ----- Map wrapper: full bleed, contains floating chrome ----- */
 .map-wrapper {
   flex: 1 1 auto;
   position: relative;
@@ -82,7 +70,6 @@ body {
   overflow: hidden;
 }
 
-/* ----- Top bar — floating pill ----- */
 .top-bar.pill-bar {
   position: absolute;
   top: var(--space-unit);
@@ -186,8 +173,6 @@ body {
   font-variant-numeric: tabular-nums;
 }
 
-/* ----- Map area — hero ----- */
-
 #map-canvas {
   display: block;
   width: 100%;
@@ -203,7 +188,6 @@ body {
   cursor: grabbing;
 }
 
-/* ----- Path search panel — stadium card ----- */
 .path-search-panel {
   position: absolute;
   bottom: calc(88px + var(--space-unit));
@@ -367,7 +351,6 @@ body {
   outline-offset: 2px;
 }
 
-/* ----- Bottom bar — floating dock ----- */
 .bottom-bar.dock-wrap {
   position: fixed;
   bottom: 0;
@@ -511,7 +494,6 @@ body {
   outline-offset: 2px;
 }
 
-/* ----- Overlay ----- */
 .overlay {
   position: fixed;
   inset: 0;
@@ -529,7 +511,6 @@ body {
   display: none !important;
 }
 
-/* ----- Building/floor dropdown ----- */
 .dropdown-panel {
   position: fixed;
   top: 64px;
@@ -595,7 +576,6 @@ body {
   font-weight: 600;
 }
 
-/* ----- Side panel — other buildings ----- */
 .side-panel {
   position: fixed;
   top: 0;
@@ -754,7 +734,6 @@ body {
   outline-offset: 2px;
 }
 
-/* Safe area */
 @supports (padding-bottom: env(safe-area-inset-bottom)) {
   .bottom-bar {
     padding-bottom: calc(24px + env(safe-area-inset-bottom));
